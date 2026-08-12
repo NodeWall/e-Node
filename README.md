@@ -17,6 +17,8 @@ Instead of the **standard console**, the host's screen renders a full HTML page 
 
 Works with **any** display. A touchscreen is just a bonus interaction layer — the core idea works on a plain monitor too. Point it at the Proxmox Web UI and the machine boots into a real management console, not a shell.
 
+With a keyboard attached, the **native console is always one keystroke away**: switch to the host's default console and back to the LXC GUI at any time (e.g. `Ctrl+Shift+F1` / `F2`). The container UI is an overlay, not a cage.
+
 ### 🧱 Monolithic Two-Tier Design
 eNode runs a strict, resource-optimized monolith — no Desktop Environment, no network chaos:
 
@@ -38,6 +40,12 @@ eNode is built on second-life hardware. Example units tested by the project (use
 | HP Elite x2 G8 | i7-1185G7 / 16 GB / 256 GB SATA | ~$125 |
 
 Second-life x86 with a display is dramatically cheaper than enterprise rack gear — and becomes a self-controlled interactive node instead of e-waste.
+
+## Self-Deployment
+
+eNode is designed to deploy itself. Install Proxmox on the host, place the eNode LXC, and the bundled deployment script handles the rest — automatically configuring **both** the host layer (X server, input passthrough, framebuffer) and the LXC layer (backend, kiosk, UI). No manual step-by-step setup.
+
+One command turns a fresh Proxmox box into a self-displaying node.
 
 ## Status
 
