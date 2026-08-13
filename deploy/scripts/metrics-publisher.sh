@@ -14,7 +14,7 @@ while true; do
   DISK_PCT=$(df -h / | awk 'NR==2 {print $5}' | tr -d '%' || echo 0)
   HOSTNAME_V=$(hostname)
   UPTIME=$(awk '{print int($1/3600)}' /proc/uptime)
-  IP=$(hostname -I | awk '{print $1}' || echo "10.10.10.15")
+  IP=$(hostname -I | awk '{print $1}' || echo "127.0.0.1")
   TS=$(date +%s)
   PAYLOAD=$(printf '{"cpu":%s,"memory":{"percent":%s},"disk":{"percent":%s},"hostname":"%s","uptime":%s,"ip":"%s","timestamp":%s}' "$CPU" "$MEM_PCT" "$DISK_PCT" "$HOSTNAME_V" "$UPTIME" "$IP" "$TS")
   mosquitto_pub -h 127.0.0.1 -t "$TOPIC" -m "$PAYLOAD" -q 1 2>/dev/null || true
