@@ -24,8 +24,8 @@ REPO="https://github.com/NodeWall/e-Node.git"
 CT_NAME=""
 CT_ID=""
 NODE_HOSTNAME="$(hostname)"
-STORAGE="$(pvesm status 2>/dev/null | awk 'NR>1 && $2=="local" {print $1; exit}')"
-TEMPLATE=""
+STORAGE="${ENODE_STORAGE:-$(pvesm status 2>/dev/null | awk 'NR>1 {print $1; exit}')}"
+TEMPLATE="${ENODE_TEMPLATE:-}"
 DRY_RUN=0
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
@@ -53,6 +53,9 @@ done
 [ -z "$CT_NAME" ] && CT_NAME="eNode-${NODE_HOSTNAME}"
 [ -z "$STORAGE" ] && STORAGE="local"
 
+if [ -z "$TEMPLATE" ]; then
+  TEMPLATE="$(pvesm list "$STORAGE" --vztmpl 2>/dev/null | awk 'NR>1 && /debian-13-standard/ {print $1; exit}')"
+fi
 if [ -z "$TEMPLATE" ]; then
   TEMPLATE="$(pvesm list "$STORAGE" --vztmpl 2>/dev/null | awk 'NR>1 && /debian/ {print $1; exit}')"
 fi

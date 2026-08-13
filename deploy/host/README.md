@@ -1,41 +1,32 @@
 # eNode Host Files
 
-Цей каталог містить увесь конфіг та скрипти проекту eNode для поточної ноди Proxmox.
-При клонуванні на іншу ноду достатньо скопіювати цей каталог і симлінки в `/etc/systemd/system/`.
+This directory holds the host-level configuration and scripts that `eNode-install`
+deploys onto the Proxmox node. It is the declarative source for everything that
+runs **on the host** (not inside the LXC).
 
-## Вміст
+## Contents
 
-| Файл | Призначення |
-|------|-------------|
-| `xorg-kiosk.service` | systemd-сервіс для голеї Xorg на `:0` |
-| `kiosk-start.sh` | запуск Chromium у LXC 300 через `pct exec` |
-| `display-ctl.service` | oneshot-сервіс: `xset dpms force off/on` |
-| `display-ctl.socket` | слухає `127.0.0.1:7380`, приймає з’єднання для дисплея |
-| `metrics-publisher.sh` | збір метрик хоста → публікація в MQTT `127.0.0.1:1883` |
-| `mosquitto.conf` | конфіг локального Mosquitto |
-| `README.md` | цей файл |
+| File | Purpose |
+|------|---------|
+| `xorg.conf` | Bare Xorg server config for the physical display |
+| `xorg.conf.d/10-input.conf` | Input device (touch/keyboard) passthrough |
+| `systemd/xorg-core.service` | Starts Xorg on `:0` at boot |
+| `systemd/kiosk.service` | Launches the Chromium kiosk inside the LXC |
+| `systemd/metrics-publisher.service` | Publishes host metrics to MQTT |
+| `mosquitto/enode.conf` | Local Mosquitto broker config |
 
-## Системні залежності
+## System dependencies (installed by eNode-install)
 
-- `mosquitto` — MQTT брокер (встановлюється окремо)
-- `mosquitto-clients` — утиліта `mosquitto_pub` для паблікації метрик
-- `xserver-xorg-core`, `libinput`, `mesa` — графічний стек
+- `xserver-xorg-core`, `x11-xserver-utils`, `libinput-bin` — graphics stack
+- `mosquitto`, `mosquitto-clients` — MQTT broker + `mosquitto_pub`
 
-## Сервіси
+## Deploy target paths
 
-| Сервіс / Socket | Статус | Призначення |
-|-----------------|--------|-------------|
-| `xorg-kiosk.service` | enabled/active | Xorg на `:0`, дисплей `eDP-1` 1920×1280 |
-| `display-ctl.socket` | enabled/active | приймає команди дисплея з LXC |
-| `metrics-publisher.service` | enabled/active | публікує метрики в топік `enode/host/metrics` кожні 10–15с |
+| Source | Installed to |
+|--------|--------------|
+| `xorg.conf` | `/etc/X11/xorg.conf` |
+| `xorg.conf.d/*` | `/etc/X11/xorg.conf.d/` |
+| `systemd/*.service` | `/etc/systemd/system/` |
+| `mosquitto/enode.conf` | `/etc/mosquitto/conf.d/enode.conf` |
 
-## Клонування на нову ноду
-
-1. Скопіювати каталог `/opt/enode/` на новий хост.
-2. Створити симлінки:
-   - `ln -s /opt/enode/xorg-kiosk.service /etc/systemd/system/xorg-kiosk.service`
-   - `ln -s /opt/enode/display-ctl.service /etc/systemd/system/display-ctl.service`
-   - `ln -s /opt/enode/display-ctl.socket /etc/systemd/system/display-ctl.socket`
-3. Виконати `systemctl daemon-reload`.
-4. Встановити залежності: `apt install mosquitto mosquitto-clients xserver-xorg-core libinput-bin mesa-...`.
-5. Ввімкнути сервіси: `systemctl enable --now xorg-kiosk.service display-ctl.socket metrics-publisher.service`.
+No manual symlinks needed — `eNode-install` copies these files directly.
