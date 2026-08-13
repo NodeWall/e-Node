@@ -84,7 +84,9 @@ if [ -z "$TEMPLATE" ]; then
   if [ -n "$TMPL" ]; then
     log "Downloading template: $TMPL → $STORAGE"
     pveam download "$STORAGE" "$TMPL" 2>&1 | tee -a "$LOG" >&2
-    TEMPLATE="$(pvesm list "$STORAGE" --vztmpl 2>/dev/null | awk 'NR>1 && /debian/ {print $1; exit}')"
+    # Build the volid directly from the downloaded filename (don't re-scan pvesm)
+    TEMPLATE="${STORAGE}:vztmpl/${TMPL}"
+    log "Template volid: $TEMPLATE"
   fi
 fi
 [ -z "$TEMPLATE" ] && {
