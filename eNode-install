@@ -18,20 +18,15 @@
 # (e.g. a 2-in-1 convertible), NOT for production Proxmox clusters. Review the
 # steps with --dry-run first, and test on a spare host.
 #
-# Logging: every line goes to the console AND /var/log/eNode-install.log.
+# Logging: every step is printed to the terminal AND appended to the log file.
 
 LOG="/var/log/eNode-install.log"
 mkdir -p "$(dirname "$LOG")"
 
-# Reliable logger: prints to terminal (stderr so it is not consumed by pipes)
-# and appends to the log file. No buffering surprises.
 log() {
   local ts; ts="$(date '+%Y-%m-%d %H:%M:%S')"
   printf '[%s] %s\n' "$ts" "$*" | tee -a "$LOG" >&2
 }
-
-# On any error, show where it happened.
-trap 'log "ERROR at line $LINENO — install aborted. See $LOG for details."' ERR
 
 set -uo pipefail
 
@@ -48,7 +43,7 @@ usage() {
   log "Usage: $0 --name <eNode-pve1> [--id <vmid>] [--template <volid>] [--storage <storage>] [--dry-run]"
   log "  --name     CT name (default: eNode-<hostname>)"
   log "  --id       VMID (default: first free >= 300)"
-  log "  --template Debian CT template volid (default: auto-detect debian-13-standard)"
+  log "  --template Debian CT template volid (default: auto-detect / auto-download)"
   log "  --storage  storage for CT rootfs (default: first pvesm volume)"
   log "  --dry-run  print actions without executing"
   exit 1
@@ -65,64 +60,92 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+log "=== eNode-install started — full log at $LOG ==="
+
 [ -z "$CT_NAME" ] && CT_NAME="eNode-${NODE_HOSTNAME}"
 [ -z "$STORAGE" ] && STORAGE="local"
+log "Target storage: $STORAGE"
 
+# --- Template resolution (auto-download if missing) ---
 if [ -z "$TEMPLATE" ]; then
+  log "Searching for a Debian template on $STORAGE ..."
   TEMPLATE="$(pvesm list "$STORAGE" --vztmpl 2>/dev/null | awk 'NR>1 && /debian-13-standard/ {print $1; exit}')"
 fi
 if [ -z "$TEMPLATE" ]; then
   TEMPLATE="$(pvesm list "$STORAGE" --vztmpl 2>/dev/null | awk 'NR>1 && /debian/ {print $1; exit}')"
 fi
-[ -z "$TEMPLATE" ] && { log "ERROR: no Debian template found on $STORAGE. Pass --template <volid>."; exit 1; }
+if [ -z "$TEMPLATE" ]; then
+  log "No Debian template found locally. Attempting auto-download (needs internet)..."
+  pveam update 2>&1 | tee -a "$LOG" >&2 || true
+  TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian-13-standard/ {print $2; exit}')"
+  if [ -z "$TMPL" ]; then
+    TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian/ {print $2; exit}')"
+  fi
+  if [ -n "$TMPL" ]; then
+    log "Downloading template: $TMPL → $STORAGE"
+    pveam download "$STORAGE" "$TMPL" 2>&1 | tee -a "$LOG" >&2
+    TEMPLATE="$(pvesm list "$STORAGE" --vztmpl 2>/dev/null | awk 'NR>1 && /debian/ {print $1; exit}')"
+  fi
+fi
+[ -z "$TEMPLATE" ] && {
+  log "ERROR: no Debian template available on $STORAGE."
+  log "  Manual fix:"; log "    pveam update"
+  log "    pveam download $STORAGE debian-13-standard_13.0-1_amd64.tar.zst"
+  log "    (verify: pvesm list $STORAGE --vztmpl)"
+  exit 1
+}
+log "Using template: $TEMPLATE"
 
+# --- VMID ---
 if [ -z "$CT_ID" ]; then
   for id in $(seq 300 399); do
     pct status "$id" >/dev/null 2>&1 || { CT_ID="$id"; break; }
   done
 fi
 [ -z "$CT_ID" ] && { log "ERROR: no free VMID in 300-399"; exit 1; }
+log "CT name: $CT_NAME | VMID: $CT_ID"
 
-log "=== eNode Install ==="
-log "  CT name : $CT_NAME"
-log "  VMID    : $CT_ID"
-log "  Template: $TEMPLATE"
-log "  Storage : $STORAGE"
-
+# --- run helper ---
 run() {
   if [ "$DRY_RUN" = 1 ]; then
     log "[dry-run] $*"
-  else
-    log "RUN: $*"
-    eval "$@" 2>&1 | tee -a "$LOG" >&2
-    local rc=${PIPESTATUS[0]}
-    if [ "$rc" -ne 0 ]; then
-      log "ERROR: command failed (exit $rc): $*"
-      return 1
-    fi
+    return 0
+  fi
+  log "RUN: $*"
+  eval "$@" 2>&1 | tee -a "$LOG" >&2
+  local rc=${PIPESTATUS[0]}
+  if [ "$rc" -ne 0 ]; then
+    log "ERROR: command failed (exit $rc): $*"
+    exit 1
   fi
 }
 
+# --- Create + start CT ---
+log "Step 1/6: Creating LXC container..."
 run "pct create $CT_ID $TEMPLATE --name $CT_NAME --storage $STORAGE --memory 1024 --cores 1 --rootfs $STORAGE:6 --net0 name=eth0,bridge=vmbr0,ip=dhcp --unprivileged 0"
+log "Step 2/6: Starting container..."
 run "pct start $CT_ID"
-log "Waiting for CT to boot..."
+log "Waiting for CT to boot (15s)..."
 sleep 15
 
-# Inside CT: install deps, clone repo (anonymous HTTPS — NO credentials)
+# --- Inside CT: install + clone ---
+log "Step 3/6: Installing Node.js + git inside CT..."
 run "pct exec $CT_ID -- bash -c 'apt-get update -qq && apt-get install -y -qq git curl nodejs npm'"
+log "Step 4/6: Cloning e-Node repo from GitHub (anonymous)..."
 run "pct exec $CT_ID -- bash -c 'rm -rf /var/www/e-node && git clone $REPO /var/www/e-node'"
 run "pct exec $CT_ID -- bash -c 'cd /var/www/e-node && npm install --omit=dev'"
 
-# Write local config with detected host IP (so proxy works without manual edits)
+# Write local config with detected host IP
 HOST_IP="$(ip route get 1 2>/dev/null | awk '{print $7; exit}')"
 [ -z "$HOST_IP" ] && HOST_IP="$(hostname -I | awk '{print $1}')"
+log "Step 5/6: Writing local config (host IP: $HOST_IP)..."
 run "pct exec $CT_ID -- bash -c \"cat > /var/www/e-node/src/config.local.js <<CFG
 // GENERATED by eNode-install — git-ignored
 export const PROXMOX_NODE_URL = 'https://${HOST_IP}:8006';
 CFG\""
 
-# Host-side: deploy declarative files from deploy/host/ into the host filesystem
-log "Deploying host services from $HERE/deploy/host ..."
+# --- Host-side deploy ---
+log "Step 6/6: Deploying host services from $HERE/deploy/host ..."
 run "mkdir -p /etc/X11/xorg.conf.d /etc/mosquitto/conf.d /opt/enode/bin"
 run "install -m 0644 '$HERE/deploy/host/xorg.conf' /etc/X11/xorg.conf"
 run "install -m 0644 '$HERE/deploy/host/xorg.conf.d/'* /etc/X11/xorg.conf.d/ 2>/dev/null || true"
