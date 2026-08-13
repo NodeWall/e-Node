@@ -1,0 +1,12 @@
+[Unit]
+Description=eNode Metrics Subscriber (MQTT → host-metrics.json)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/var/www/enode/metrics-subscriber.sh
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

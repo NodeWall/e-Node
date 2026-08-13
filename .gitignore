@@ -1,0 +1,7 @@
+node_modules/
+.config/
+/tmp/
+*.log
+.DS_Store
+config.local.js
+.secrets/

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>eNode Hub</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/themes.css" />
+</head>
+<body>
+  <!-- Main Viewport (iframe) -->
+  <div id="app-shell">
+    <iframe id="main-viewport" src="dashboard.html" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+  </div>
+
+  <!-- Slot0 Panel (Slot 0) — 5-column grid -->
+  <div id="slot0">
+    <!-- Col 1: Logo -->
+    <div class="slot0-col-logo">
+      <a id="slot0-logo-btn" class="slot0-logo-btn" href="#" title="Відкрити WebUI агента">
+        <img src="widgets/network/eNode-logo.png" alt="eNode" style="height:32px;width:auto;object-fit:contain;filter:drop-shadow(0 0 6px rgba(0,163,255,0.4));">
+      </a>
+    </div>
+
+    <!-- Col 2: Brightness -->
+    <div class="slot0-col-brightness">
+      <div class="slot0-control">
+        <svg class="slot0-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <input type="range" id="brightness-slider" min="0" max="100" value="100" class="slot0-slider">
+      </div>
+    </div>
+
+    <!-- Col 3: Home (center) -->
+    <div class="slot0-col-home">
+      <button id="slot0-home" class="slot0-btn slot0-btn-home" title="Додому">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>
+      </button>
+    </div>
+
+    <!-- Col 4: Volume slider -->
+    <div class="slot0-col-volume">
+      <div class="slot0-control">
+        <svg class="slot0-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+        <input type="range" id="volume-slider" min="0" max="100" value="50" class="slot0-slider">
+      </div>
+    </div>
+
+    <!-- Col 5: Settings gear -->
+    <div class="slot0-col-settings">
+      <button id="slot0-settings" class="slot0-btn slot0-btn-settings" title="Налаштування">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <script src="/js/slot0.js"></script>
+  <script src="/js/shell.js" type="module"></script>
+</body>
+</html>

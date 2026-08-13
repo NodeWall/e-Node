@@ -1,0 +1,72 @@
+#proxmox-widget {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  color: #ffffff;
+  padding: 2vh 1.5vw;
+  position: relative;
+}
+
+.proxmox-title {
+  font-size: 2.4vh;
+  opacity: 0.9;
+  margin-bottom: 0.6vh;
+}
+
+.brand-logo {
+  position: absolute;
+  top: 1.4vh;
+  right: 1.6vw;
+  max-width: 32px;
+  max-height: 32px;
+  opacity: 0.75;
+  object-fit: contain;
+}
+
+.proxmox-metric {
+  display: flex;
+  align-items: center;
+  gap: 1.2vw;
+  margin: 0.6vh 0;
+}
+
+.proxmox-metric .metric-label {
+  font-size: 2.2vh;
+  opacity: 0.85;
+  min-width: 9vw;
+}
+
+.proxmox-metric .metric-value {
+  font-size: 2.6vh;
+  font-weight: 700;
+  min-width: 6vw;
+  text-align: right;
+}
+
+.proxmox-metric .progress-track {
+  flex: 1;
+  height: 2.2vh;
+  background: #2a2a2a;
+  border-radius: 2vh;
+  overflow: hidden;
+}
+
+.proxmox-metric .progress-fill {
+  height: 100%;
+  background: #4caf84;
+  border-radius: 2vh;
+  transition: width .6s ease;
+}
+
+.proxmox-metric.status-ok .progress-fill {
+  background: #4caf84;
+}
+
+.proxmox-metric.status-warn .progress-fill {
+  background: #ff9800;
+}
+
+.proxmox-metric.status-err .progress-fill {
+  background: #e57373;
+}

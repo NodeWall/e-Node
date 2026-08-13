@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Map - Shchaslyve to Livoberezhna</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; width: 100%; overflow: hidden; background: #1a1d23; }
+    .map-container { width: 100%; height: 100%; position: relative; }
+    .map-container iframe { width: 100%; height: 100%; border: none; }
+    .map-title {
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.8); color: #fff; padding: 8px 16px;
+      border-radius: 16px; font-family: system-ui, sans-serif;
+      font-size: 14px; font-weight: 600; z-index: 1000; pointer-events: none; white-space: nowrap;
+    }
+    .map-info {
+      position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.8); color: #aaa; padding: 6px 14px;
+      border-radius: 12px; font-family: system-ui, sans-serif; font-size: 12px; z-index: 1000; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="map-title">с. Щасливе — м. Лівобережна</div>
+  <div class="map-container">
+    <iframe
+      src="https://embed.waze.com/iframe?zoom=12&lat=50.4150&lon=30.6980&pin=1"
+      allow="fullscreen; autoplay; geolocation"
+      allowfullscreen=""
+      loading="lazy">
+    </iframe>
+  </div>
+  <div class="map-info">Час: 27 хв</div>
+</body>
+</html>

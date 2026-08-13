@@ -1,0 +1,40 @@
+#homeassistant-widget {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #ffffff;
+  padding: 2vh 1.5vw;
+  position: relative;
+}
+
+.ha-title {
+  font-size: 2.4vh;
+  opacity: 0.9;
+  margin-bottom: 0.6vh;
+}
+
+.brand-logo {
+  position: absolute;
+  top: 1.4vh;
+  right: 1.6vw;
+  max-width: 32px;
+  max-height: 32px;
+  opacity: 0.75;
+  object-fit: contain;
+}
+
+.ha-status {
+  font-size: 2.6vh;
+  font-weight: 600;
+  margin: 0.8vh 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8vw;
+}
+
+.ha-detail {
+  font-size: 2.2vh;
+  opacity: 0.85;
+  margin: 0.4vh 0;
+}

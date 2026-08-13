@@ -1,0 +1,24 @@
+#maps-widget {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  color: #ffffff;
+}
+
+.maps-title {
+  font-size: 2.2vh;
+  opacity: 0.9;
+  margin-bottom: 1vh;
+}
+
+.maps-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #555;
+  font-family: system-ui, sans-serif;
+  font-size: 1.8vh;
+}

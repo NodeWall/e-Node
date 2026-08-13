@@ -28,9 +28,36 @@ eNode runs a strict, resource-optimized monolith — no Desktop Environment, no 
 ### 🎯 Hub & Spoke Dashboard (example workload)
 The display layer is generic — it can show *any* web UI. A reference **Hub & Spoke** dashboard demonstrates this: a persistent home surface (`Slot0`) with widgets that launch full web interfaces of services you already run (Proxmox, PBS, Home Assistant, OMV, and anything else with a web UI). The dashboard is a showcase, not the core — the core is the display streaming itself.
 
+## One-Command Install
+
+On the Proxmox host (home/lab mini-server):
+
+```bash
+curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash
+```
+
+`eNode-install` will:
+1. Create an LXC named `eNode-<host>` (VMID auto-picked or `--id`).
+2. Install Node.js + git, clone this repo from GitHub (anonymous, no credentials).
+3. Deploy host-level services (Xorg, mosquitto, systemd units) from `host/enode-from-host.tar.gz`.
+4. Enable everything and report status.
+
+Update later (inside the CT): `bash eNode-update`.
+
+> ⚠️ **Scope note:** `eNode-install` installs software **directly on the Proxmox host** (Xorg, MQTT broker, systemd units). Intended for **home/lab** use on a dedicated mini-server — not production Proxmox clusters. Run with `--dry-run` first to review, and test on a spare host.
+
+## Minimum Requirements
+
+| Resource | Minimum |
+| :--- | :--- |
+| RAM (CT) | 1 GB |
+| vCPU | 1 |
+| Disk (rootfs) | 6 GB |
+| Host | Proxmox VE; any x86 display (touch optional) |
+
 ## Affordability
 
-eNode is built on second-life hardware. Example units tested by the project (used eBay finds, prices vary — these were rare low bids, not average market rates):
+eNode is built on second-life hardware. Example units tested by the project (used eBay finds — rare low bids, not average market rates):
 
 | Device | Spec | Acquired |
 | :--- | :--- | :--- |
@@ -41,15 +68,9 @@ eNode is built on second-life hardware. Example units tested by the project (use
 
 Second-life x86 with a display is dramatically cheaper than enterprise rack gear — and becomes a self-controlled interactive node instead of e-waste.
 
-## Self-Deployment
-
-eNode is designed to deploy itself. Install Proxmox on the host, place the eNode LXC, and the bundled deployment script handles the rest — automatically configuring **both** the host layer (X server, input passthrough, framebuffer) and the LXC layer (backend, kiosk, UI). No manual step-by-step setup.
-
-One command turns a fresh Proxmox box into a self-displaying node.
-
 ## Status
 
-🚧 **Active Development.** eNode is a core project of the NodeWall ecosystem, maturing toward public disclosure. This repository presents the architecture and vision.
+🚧 **Active Development.** eNode is a core project of the NodeWall ecosystem, maturing toward public disclosure. This repository presents the architecture, install script, and vision.
 
 ## Connect
 
