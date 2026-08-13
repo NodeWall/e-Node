@@ -132,8 +132,14 @@ run() {
 }
 
 # --- Create + start CT ---
+# Derive DNS from host resolv.conf (pct requires a valid nameserver)
+NAMESERVER="$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf 2>/dev/null)"
+[ -z "$NAMESERVER" ] && NAMESERVER="1.1.1.1"
+SEARCHDOMAIN="$(awk '/^search/ {print $2; exit}' /etc/resolv.conf 2>/dev/null)"
+[ -z "$SEARCHDOMAIN" ] && SEARCHDOMAIN="local"
+
 log "Step 1/6: Creating LXC container..."
-run "pct create $CT_ID $TEMPLATE --name $CT_NAME --storage $STORAGE --memory 1024 --cores 1 --rootfs $STORAGE:6 --net0 name=eth0,bridge=vmbr0,ip=dhcp --unprivileged 0"
+run "pct create $CT_ID $TEMPLATE --name $CT_NAME --storage $STORAGE --memory 1024 --cores 1 --rootfs $STORAGE:6 --net0 name=eth0,bridge=vmbr0,ip=dhcp --nameserver $NAMESERVER --searchdomain $SEARCHDOMAIN --features nesting=1 --onboot 1 --unprivileged 0"
 log "Step 2/6: Starting container..."
 run "pct start $CT_ID"
 log "Waiting for CT to boot (15s)..."
