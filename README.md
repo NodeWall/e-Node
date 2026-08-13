@@ -1,6 +1,8 @@
 # eNode
 
-![eNode](assets/eNode-logo.png) **Self-Displaying Node** — part of the [NodeWall](https://github.com/NodeWall/NodeWall.Tech) ecosystem.
+![eNode](assets/eNode-logo.png)
+
+**Self-Displaying Node** — part of the [NodeWall](https://github.com/NodeWall/NodeWall.Tech) ecosystem.
 
 ![eNode](assets/eNode.png)
 
@@ -121,4 +123,4 @@ vision.
 
 ---
 
-![eNode](assets/eNode-logo.png) © 2026 NodeWall.
+![eNode](assets/eNode-logo-tiny.png) © 2026 NodeWall.
