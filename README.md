@@ -1,23 +1,8 @@
 # eNode
 
-> **Self-Displaying Node** — part of the [NodeWall](https://github.com/NodeWall/NodeWall.Tech) ecosystem.
+![eNode](assets/eNode-logo.png) **Self-Displaying Node** — part of the [NodeWall](https://github.com/NodeWall/NodeWall.Tech) ecosystem.
 
-![eNode](assets/eNode-logo.png)
-
-## Hey, friend — look what I built
-
-I'm one of you. A home-labber, not a corporation. A while back I realized something
-obvious in hindsight: a Proxmox box and a control panel don't have to be two separate
-things. The server can *be* the interface.
-
-So I took a cheap second-life x86 convertible (the kind you find for pocket change on
-eBay), installed Proxmox on it, and made its own screen show a real GUI — instead of the
-blank console you normally get. No thin client, no wall tablet. The virtualization server
-*itself* becomes the dashboard.
-
-That's eNode. And I'm sharing it because I think more of us should turn old laptops and
-x86 tablets into interactive nodes instead of e-waste. You don't need enterprise gear. You
-need a screen, a Proxmox install, and one command.
+![eNode](assets/eNode.png)
 
 ## Beyond the Headless Server
 
@@ -27,20 +12,9 @@ display shows a real GUI — rendered by a container living *inside* the same ho
 
 Not a thin client. Not a wall tablet. The server itself becomes the interface.
 
-## Why it fits on modest hardware
-
-I test on a Dell 7275 with just 8 GB of RAM. If the GUI ate 3–4 GB of that, there'd be
-almost nothing left for the VMs and containers you actually want to run. So eNode is built
-as a **minimal LXC** — the display layer sips resources, and you can scale the container up
-(add RAM, CPU, disk) after install if your box allows. The point is: start small, grow
-later.
-
-## Architectural Pillars
-
-### 🖥️ Local Display Streaming
-Instead of the **standard console**, the host's screen renders a full HTML page served from
-the node's own LXC. This is not GPU passthrough — it is display streaming: the host runs a
-bare X server, the LXC shares the X socket, and a Chromium kiosk inside the container
+Instead of the **standard text console**, the host's screen renders a full HTML page served
+from the node's own LXC. This is not GPU passthrough — it is display streaming: the host
+runs a bare X server, the LXC shares the X socket, and a Chromium kiosk inside the container
 paints the UI straight onto the monitor.
 
 Works with **any** display. A touchscreen is just a bonus interaction layer — the core idea
@@ -51,8 +25,18 @@ With a keyboard attached, the **native console is always one keystroke away**: s
 host's default console and back to the LXC GUI at any time (e.g. `Ctrl+Shift+F1` / `F2`).
 The container UI is an overlay, not a cage.
 
+## Why it fits on modest hardware
+
+eNode is built around a **minimal LXC** — no Desktop Environment, no heavy browser stack
+beyond what the kiosk needs. Tested on a Dell 7275 with just 8 GB of RAM: the display layer
+sips resources, leaving the rest for the VMs and containers you actually want to run. You can
+scale the container up (add RAM, CPU, disk) after install if your box allows. Start small,
+grow later.
+
+## Architectural Pillars
+
 ### 🧱 Monolithic Two-Tier Design
-eNode runs a strict, resource-optimized monolith — no Desktop Environment, no network chaos:
+eNode runs a strict, resource-optimized monolith:
 
 - **Tier 1 — Physical Host (Proxmox VE):** Provides KVM/LXC, allocates the framebuffer,
   launches a bare X server, and passes the graphics socket + input devices into the
@@ -111,8 +95,8 @@ finds — rare low bids, not average market rates):
 | HP Elite x2 G4 | i5-8365U / 16 GB / 256 GB SATA | ~$85 |
 | HP Elite x2 G8 | i7-1185G7 / 16 GB / 256 GB SATA | ~$125 |
 
-Second-life x86 with a display is dramatically cheaper than enterprise rack gear — and
-becomes a self-controlled interactive node instead of e-waste.
+Second-life x86 with a display is an accessible, low-cost alternative to enterprise rack
+gear — and becomes a self-controlled interactive node instead of e-waste.
 
 ## Documentation
 
@@ -135,4 +119,4 @@ vision.
 
 ---
 
-© 2026 NodeWall. Part of the NodeWall ecosystem.
+© 2026 NodeWall.
