@@ -57,9 +57,20 @@ bash eNode-update
 
 Pulls the latest `main` and reinstalls Node deps. No reinstall needed.
 
-## Scope warning
+## Tested on
 
-`eNode-install` installs software **directly on the Proxmox host**
-(Xorg, mosquitto, systemd units). This is intended for **home / lab** use on a
-dedicated mini-server — not production Proxmox clusters. See
-[SECURITY.md](SECURITY.md). Test on a spare host first.
+| Component | Version |
+| :--- | :--- |
+| Proxmox VE (host) | 9.2.x |
+| Linux kernel (host) | 7.0.x (pve) |
+| LXC template | Debian 13 (standard) |
+| Node.js (inside CT) | 20.x or newer |
+
+Newer Proxmox/LXC versions may change library behaviour; if an update breaks the
+display stack, this is the known-good baseline.
+
+## Logging
+
+`eNode-install` writes a full transcript to `/var/log/eNode-install.log` (in addition
+to the console). Keep this file — it helps diagnose failures and is useful to share
+when asking for support.

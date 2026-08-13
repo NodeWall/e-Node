@@ -2,31 +2,71 @@
 
 > **Self-Displaying Node** — part of the [NodeWall](https://github.com/NodeWall/NodeWall.Tech) ecosystem.
 
-![eNode](assets/e-Node.png)
+![eNode](assets/eNode-logo.png)
 
-## Beyond the Headless Server: The Interactive HomeLab Node
+## Hey, friend — look what I built
 
-Most servers run headless — a black box you only touch over SSH. **eNode goes further than that paradigm.** It turns a commodity x86 machine with a screen into a node whose own display shows a real GUI — rendered by a container living *inside* the same host.
+I'm one of you. A home-labber, not a corporation. A while back I realized something
+obvious in hindsight: a Proxmox box and a control panel don't have to be two separate
+things. The server can *be* the interface.
+
+So I took a cheap second-life x86 convertible (the kind you find for pocket change on
+eBay), installed Proxmox on it, and made its own screen show a real GUI — instead of the
+blank console you normally get. No thin client, no wall tablet. The virtualization server
+*itself* becomes the dashboard.
+
+That's eNode. And I'm sharing it because I think more of us should turn old laptops and
+x86 tablets into interactive nodes instead of e-waste. You don't need enterprise gear. You
+need a screen, a Proxmox install, and one command.
+
+## Beyond the Headless Server
+
+Most servers run headless — a black box you only touch over SSH. **eNode goes further
+than that paradigm.** It turns a commodity x86 machine with a screen into a node whose own
+display shows a real GUI — rendered by a container living *inside* the same host.
 
 Not a thin client. Not a wall tablet. The server itself becomes the interface.
+
+## Why it fits on modest hardware
+
+I test on a Dell 7275 with just 8 GB of RAM. If the GUI ate 3–4 GB of that, there'd be
+almost nothing left for the VMs and containers you actually want to run. So eNode is built
+as a **minimal LXC** — the display layer sips resources, and you can scale the container up
+(add RAM, CPU, disk) after install if your box allows. The point is: start small, grow
+later.
 
 ## Architectural Pillars
 
 ### 🖥️ Local Display Streaming
-Instead of the **standard console**, the host's screen renders a full HTML page served from the node's own LXC. This is not GPU passthrough — it is display streaming: the host runs a bare X server, the LXC shares the X socket, and a Chromium kiosk inside the container paints the UI straight onto the monitor.
+Instead of the **standard console**, the host's screen renders a full HTML page served from
+the node's own LXC. This is not GPU passthrough — it is display streaming: the host runs a
+bare X server, the LXC shares the X socket, and a Chromium kiosk inside the container
+paints the UI straight onto the monitor.
 
-Works with **any** display. A touchscreen is just a bonus interaction layer — the core idea works on a plain monitor too. Point it at the Proxmox Web UI and the machine boots into a real management console, not a shell.
+Works with **any** display. A touchscreen is just a bonus interaction layer — the core idea
+works on a plain monitor too. Point it at the Proxmox Web UI and the machine boots into a
+real management console, not a shell.
 
-With a keyboard attached, the **native console is always one keystroke away**: switch to the host's default console and back to the LXC GUI at any time (e.g. `Ctrl+Shift+F1` / `F2`). The container UI is an overlay, not a cage.
+With a keyboard attached, the **native console is always one keystroke away**: switch to the
+host's default console and back to the LXC GUI at any time (e.g. `Ctrl+Shift+F1` / `F2`).
+The container UI is an overlay, not a cage.
 
 ### 🧱 Monolithic Two-Tier Design
 eNode runs a strict, resource-optimized monolith — no Desktop Environment, no network chaos:
 
-- **Tier 1 — Physical Host (Proxmox VE):** Provides KVM/LXC, allocates the framebuffer, launches a bare X server, and passes the graphics socket + input devices into the container.
-- **Tier 2 — Monolithic LXC:** Contains *everything* — the Node.js/Fastify backend, static UI assets, metrics collection, and the Chromium kiosk that renders the interface onto the host's display.
+- **Tier 1 — Physical Host (Proxmox VE):** Provides KVM/LXC, allocates the framebuffer,
+  launches a bare X server, and passes the graphics socket + input devices into the
+  container.
+- **Tier 2 — Monolithic LXC:** Contains *everything* — the Node.js/Fastify backend, static
+  UI assets, metrics collection, and the Chromium kiosk that renders the interface onto the
+  host's display.
 
 ### 🎯 Hub & Spoke Dashboard (example workload)
-The display layer is generic — it can show *any* web UI. A reference **Hub & Spoke** dashboard demonstrates this: a persistent home surface (`Slot0`) with widgets that launch full web interfaces of services you already run (Proxmox, PBS, Home Assistant, OMV, and anything else with a web UI). The dashboard is a showcase, not the core — the core is the display streaming itself.
+The display layer is generic — it can show *any* web UI. A reference **Hub & Spoke**
+dashboard demonstrates this: a persistent home surface (`Slot0`) with widgets that launch
+full web interfaces of services you already run (Proxmox, PBS, Home Assistant, OMV, and
+anything else with a web UI). The dashboard is a showcase, not the core — the core is the
+display streaming itself.
 
 ## One-Command Install
 
@@ -39,12 +79,16 @@ curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install |
 `eNode-install` will:
 1. Create an LXC named `eNode-<host>` (VMID auto-picked or `--id`).
 2. Install Node.js + git, clone this repo from GitHub (anonymous, no credentials).
-3. Deploy host-level services (Xorg, mosquitto, systemd units) from `host/enode-from-host.tar.gz`.
-4. Enable everything and report status.
+3. Deploy host-level services (Xorg, mosquitto, systemd units) from `deploy/host/`.
+4. Enable everything and report status. A full log is written to
+   `/var/log/eNode-install.log`.
 
 Update later (inside the CT): `bash eNode-update`.
 
-> ⚠️ **Scope note:** `eNode-install` installs software **directly on the Proxmox host** (Xorg, MQTT broker, systemd units). Intended for **home/lab** use on a dedicated mini-server — not production Proxmox clusters. Run with `--dry-run` first to review, and test on a spare host.
+> ⚠️ **Scope note:** `eNode-install` installs software **directly on the Proxmox host**
+> (Xorg, MQTT broker, systemd units). Intended for **home/lab** use on a dedicated
+> mini-server — not production Proxmox clusters. Run with `--dry-run` first to review, and
+> test on a spare host.
 
 ## Minimum Requirements
 
@@ -57,7 +101,8 @@ Update later (inside the CT): `bash eNode-update`.
 
 ## Affordability
 
-eNode is built on second-life hardware. Example units tested by the project (used eBay finds — rare low bids, not average market rates):
+eNode is built on second-life hardware. Example units tested by the project (used eBay
+finds — rare low bids, not average market rates):
 
 | Device | Spec | Acquired |
 | :--- | :--- | :--- |
@@ -66,7 +111,8 @@ eNode is built on second-life hardware. Example units tested by the project (use
 | HP Elite x2 G4 | i5-8365U / 16 GB / 256 GB SATA | ~$85 |
 | HP Elite x2 G8 | i7-1185G7 / 16 GB / 256 GB SATA | ~$125 |
 
-Second-life x86 with a display is dramatically cheaper than enterprise rack gear — and becomes a self-controlled interactive node instead of e-waste.
+Second-life x86 with a display is dramatically cheaper than enterprise rack gear — and
+becomes a self-controlled interactive node instead of e-waste.
 
 ## Documentation
 
@@ -76,7 +122,9 @@ Second-life x86 with a display is dramatically cheaper than enterprise rack gear
 
 ## Status
 
-🚧 **Active Development.** eNode is a core project of the NodeWall ecosystem, maturing toward public disclosure. This repository presents the architecture, install script, and vision.
+🚧 **Active Development.** eNode is a core project of the NodeWall ecosystem, maturing
+toward public disclosure. This repository presents the architecture, install script, and
+vision.
 
 ## Connect
 

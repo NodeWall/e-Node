@@ -20,6 +20,11 @@
 #
 set -euo pipefail
 
+# Log everything to a file (for later analysis / support)
+LOG="/var/log/eNode-install.log"
+mkdir -p "$(dirname "$LOG")"
+exec > >(tee -a "$LOG") 2>&1
+echo "=== eNode-install started $(date -u) ==="
 REPO="https://github.com/NodeWall/e-Node.git"
 CT_NAME=""
 CT_ID=""
