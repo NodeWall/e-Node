@@ -67,27 +67,36 @@ log "=== eNode-install started — full log at $LOG ==="
 log "Target storage: $STORAGE"
 
 # --- Template resolution (auto-download if missing) ---
+CACHE_DIR="/var/lib/vz/template/cache"
+
+find_local_template() {
+  # Returns the first matching debian-13-standard (or debian) .tar.zst/.tar.xz in cache
+  local f
+  f="$(ls -1 "$CACHE_DIR" 2>/dev/null | grep -E 'debian-13-standard.*\.tar\.(zst|xz)$' | head -1)"
+  [ -z "$f" ] && f="$(ls -1 "$CACHE_DIR" 2>/dev/null | grep -E 'debian.*\.tar\.(zst|xz)$' | head -1)"
+  [ -n "$f" ] && echo "${STORAGE}:vztmpl/$f"
+}
+
 if [ -z "$TEMPLATE" ]; then
   log "Searching for a Debian template on $STORAGE ..."
-  TEMPLATE="$(pvesm list "$STORAGE" --vztmpl 2>/dev/null | awk 'NR>1 && /debian-13-standard/ {print $1; exit}')"
+  TEMPLATE="$(find_local_template)"
 fi
-if [ -z "$TEMPLATE" ]; then
-  TEMPLATE="$(pvesm list "$STORAGE" --vztmpl 2>/dev/null | awk 'NR>1 && /debian/ {print $1; exit}')"
-fi
+
 if [ -z "$TEMPLATE" ]; then
   log "No Debian template found locally. Attempting auto-download (needs internet)..."
   pveam update 2>&1 | tee -a "$LOG" >&2 || true
-  TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian-13-standard/ {print $2; exit}')"
+  # Robust parse: grab the template filename (ends with .tar.zst/.tar.xz) from pveam available
+  TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian-13-standard/ {for(i=1;i<=NF;i++) if($i ~ /debian-13-standard.*\.tar\.(zst|xz)$/) {print $i; exit}}')"
   if [ -z "$TMPL" ]; then
-    TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian/ {print $2; exit}')"
+    TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian/ {for(i=1;i<=NF;i++) if($i ~ /debian.*\.tar\.(zst|xz)$/) {print $i; exit}}')"
   fi
   if [ -n "$TMPL" ]; then
     log "Downloading template: $TMPL → $STORAGE"
     pveam download "$STORAGE" "$TMPL" 2>&1 | tee -a "$LOG" >&2
-    # Build the volid directly from the downloaded filename (don't re-scan pvesm)
-    TEMPLATE="${STORAGE}:vztmpl/${TMPL}"
-    log "Template volid: $TEMPLATE"
   fi
+  # Always re-scan the cache dir (download may say "already exists")
+  TEMPLATE="$(find_local_template)"
+  [ -n "$TEMPLATE" ] && log "Template volid: $TEMPLATE"
 fi
 [ -z "$TEMPLATE" ] && {
   log "ERROR: no Debian template available on $STORAGE."
