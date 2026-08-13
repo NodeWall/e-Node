@@ -65,9 +65,8 @@ done
 # --- Robust Storage Detection ---
 if [ -z "$STORAGE" ]; then
   log "Detecting storage capable of hosting container rootfs..."
-  # Find first storage that supports 'rootdir' (typical for LXC)
   STORAGE="$(pvesm status | awk '$NF ~ /rootdir/ {print $1; exit}')"
-  [ -z "$STORAGE" ] && STORAGE="local"
+  [ -z "$STORAGE" ] && STORAGE="local-lvm"
 fi
 log "Target storage: $STORAGE"
 
@@ -76,7 +75,7 @@ CACHE_DIR="/var/lib/vz/template/cache"
 find_local_template() {
   local f
   f="$(ls -1 "$CACHE_DIR" 2>/dev/null | grep -E 'debian-13-standard.*\.tar\.(zst|xz)$' | head -1)"
-  [ -z "$f" ] && f="$(ls -1 "$CACHE_DIR" 2>/dev///null | grep -E 'debian.*\.tar\.(zst|xz)$' | head -1)"
+  [ -z "$f" ] && f="$(ls -1 "$CACHE_DIR" 2>/dev/null | grep -E 'debian.*\.tar\.(zst|xz)$' | head -1)"
   [ -n "$f" ] && echo "${STORAGE}:vztmpl/$f"
 }
 
@@ -90,7 +89,7 @@ if [ -z "$TEMPLATE" ]; then
   pveam update 2>&1 | tee -a "$LOG" >&2 || true
   TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian-13-standard/ {for(i=1;i<=NF;i++) if($i ~ /debian-13-standard.*\.tar\.(zst|xz)$/) {print $i; exit}}')"
   if [ -z "$TMPL" ]; then
-    TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian/ {for(i=1;i<=NF;i++) if($i ~ /debian.*\.//tar\.(zst|xz)$/) {print $i; exit}}')"
+    TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian/ {for(i=1;i<=NF;i++) if($i ~ /debian.*\.tar\.(zst|xz)$/) {print $i; exit}}')"
   fi
   if [ -n "$TMPL" ]; then
     log "Downloading template: $TMPL → $STORAGE"
@@ -138,6 +137,4 @@ NAMESERVER="$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf 2>/dev/null)
 log "Step 1/6: Creating LXC container..."
 run "pct create $CT_ID $TEMPLATE --hostname $CT_NAME --storage $STORAGE --memory 1024 --cores 1 --rootfs $STORAGE:6 --net0 name=eth0,bridge=vmbr0,ip=dhcp --features nesting=1 --onboot 1 --unprivileged 0"
 log "Step 2/6: Starting container..."
-run "pct start $CT_ID" # Wait, I used $CT_ID in prev
-# Wait, I need to fix the run "pct start $CT_ID"
-# I will fix the script in the write_file call.
+run "pct start $CT_ID"
