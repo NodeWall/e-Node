@@ -95,8 +95,10 @@ finds — rare low bids, not average market rates):
 | HP Elite x2 G4 | i5-8365U / 16 GB / 256 GB SATA | ~$85 |
 | HP Elite x2 G8 | i7-1185G7 / 16 GB / 256 GB SATA | ~$125 |
 
-Second-life x86 with a display is an accessible, low-cost alternative to enterprise rack
-gear — and becomes a self-controlled interactive node instead of e-waste.
+Second-life x86 with a display is an accessible, low-cost alternative to enterprise
+rack gear. If you have an old laptop or x86 tablet lying unused, eNode is a great way to
+put that e-waste to work — or pick up a cheap used unit and give it a second life as a
+self-controlled interactive node.
 
 ## Documentation
 
@@ -119,4 +121,4 @@ vision.
 
 ---
 
-© 2026 NodeWall.
+![eNode](assets/eNode-logo.png) © 2026 NodeWall.
