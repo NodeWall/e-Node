@@ -18,13 +18,23 @@
 # (e.g. a 2-in-1 convertible), NOT for production Proxmox clusters. Review the
 # steps with --dry-run first, and test on a spare host.
 #
-set -euo pipefail
+# Logging: every line goes to the console AND /var/log/eNode-install.log.
 
-# Log everything to a file (for later analysis / support)
 LOG="/var/log/eNode-install.log"
 mkdir -p "$(dirname "$LOG")"
-exec > >(tee -a "$LOG") 2>&1
-echo "=== eNode-install started $(date -u) ==="
+
+# Reliable logger: prints to terminal (stderr so it is not consumed by pipes)
+# and appends to the log file. No buffering surprises.
+log() {
+  local ts; ts="$(date '+%Y-%m-%d %H:%M:%S')"
+  printf '[%s] %s\n' "$ts" "$*" | tee -a "$LOG" >&2
+}
+
+# On any error, show where it happened.
+trap 'log "ERROR at line $LINENO — install aborted. See $LOG for details."' ERR
+
+set -uo pipefail
+
 REPO="https://github.com/NodeWall/e-Node.git"
 CT_NAME=""
 CT_ID=""
@@ -35,12 +45,12 @@ DRY_RUN=0
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
-  echo "Usage: $0 --name <eNode-pve1> [--id <vmid>] [--template <volid>] [--storage <storage>] [--dry-run]"
-  echo "  --name     CT name (default: eNode-<hostname>)"
-  echo "  --id       VMID (default: first free >= 300)"
-  echo "  --template Debian CT template volid (default: auto-detect local:vztmpl/*debian*)"
-  echo "  --storage  storage for CT rootfs (default: local)"
-  echo "  --dry-run  print actions without executing"
+  log "Usage: $0 --name <eNode-pve1> [--id <vmid>] [--template <volid>] [--storage <storage>] [--dry-run]"
+  log "  --name     CT name (default: eNode-<hostname>)"
+  log "  --id       VMID (default: first free >= 300)"
+  log "  --template Debian CT template volid (default: auto-detect debian-13-standard)"
+  log "  --storage  storage for CT rootfs (default: first pvesm volume)"
+  log "  --dry-run  print actions without executing"
   exit 1
 }
 
@@ -64,26 +74,38 @@ fi
 if [ -z "$TEMPLATE" ]; then
   TEMPLATE="$(pvesm list "$STORAGE" --vztmpl 2>/dev/null | awk 'NR>1 && /debian/ {print $1; exit}')"
 fi
-[ -z "$TEMPLATE" ] && { echo "ERROR: no Debian template found on $STORAGE. Pass --template <volid>."; exit 1; }
+[ -z "$TEMPLATE" ] && { log "ERROR: no Debian template found on $STORAGE. Pass --template <volid>."; exit 1; }
 
 if [ -z "$CT_ID" ]; then
   for id in $(seq 300 399); do
     pct status "$id" >/dev/null 2>&1 || { CT_ID="$id"; break; }
   done
 fi
-[ -z "$CT_ID" ] && { echo "ERROR: no free VMID in 300-399"; exit 1; }
+[ -z "$CT_ID" ] && { log "ERROR: no free VMID in 300-399"; exit 1; }
 
-echo "=== eNode Install ==="
-echo "  CT name : $CT_NAME"
-echo "  VMID    : $CT_ID"
-echo "  Template: $TEMPLATE"
-echo "  Storage : $STORAGE"
+log "=== eNode Install ==="
+log "  CT name : $CT_NAME"
+log "  VMID    : $CT_ID"
+log "  Template: $TEMPLATE"
+log "  Storage : $STORAGE"
 
-run() { if [ "$DRY_RUN" = 1 ]; then echo "[dry-run] $*"; else eval "$@"; fi }
+run() {
+  if [ "$DRY_RUN" = 1 ]; then
+    log "[dry-run] $*"
+  else
+    log "RUN: $*"
+    eval "$@" 2>&1 | tee -a "$LOG" >&2
+    local rc=${PIPESTATUS[0]}
+    if [ "$rc" -ne 0 ]; then
+      log "ERROR: command failed (exit $rc): $*"
+      return 1
+    fi
+  fi
+}
 
 run "pct create $CT_ID $TEMPLATE --name $CT_NAME --storage $STORAGE --memory 1024 --cores 1 --rootfs $STORAGE:6 --net0 name=eth0,bridge=vmbr0,ip=dhcp --unprivileged 0"
 run "pct start $CT_ID"
-echo "Waiting for CT to boot..."
+log "Waiting for CT to boot..."
 sleep 15
 
 # Inside CT: install deps, clone repo (anonymous HTTPS — NO credentials)
@@ -100,7 +122,7 @@ export const PROXMOX_NODE_URL = 'https://${HOST_IP}:8006';
 CFG\""
 
 # Host-side: deploy declarative files from deploy/host/ into the host filesystem
-echo "Deploying host services from $HERE/deploy/host ..."
+log "Deploying host services from $HERE/deploy/host ..."
 run "mkdir -p /etc/X11/xorg.conf.d /etc/mosquitto/conf.d /opt/enode/bin"
 run "install -m 0644 '$HERE/deploy/host/xorg.conf' /etc/X11/xorg.conf"
 run "install -m 0644 '$HERE/deploy/host/xorg.conf.d/'* /etc/X11/xorg.conf.d/ 2>/dev/null || true"
@@ -119,6 +141,6 @@ done
 # Start backend+kiosk inside CT
 run "pct exec $CT_ID -- bash -c 'systemctl enable --now kiosk.service 2>/dev/null || bash /usr/local/bin/kiosk-start.sh'"
 
-echo "=== Done ==="
-echo "eNode CT '$CT_NAME' (VMID $CT_ID) installed. Access the kiosk on the host display."
-echo "Update later with: eNode-update (inside CT: cd /var/www/e-node && git pull && npm install)"
+log "=== Done ==="
+log "eNode CT '$CT_NAME' (VMID $CT_ID) installed. Access the kiosk on the host display."
+log "Update later with: eNode-update (inside CT: cd /var/www/e-node && git pull && npm install)"

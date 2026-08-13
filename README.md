@@ -1,6 +1,4 @@
-# eNode
-
-![eNode](assets/eNode-logo.png)
+# ![eNode](assets/eNode-logo.png) eNode
 
 **Self-Displaying Node** — part of the [NodeWall](https://github.com/NodeWall/NodeWall.Tech) ecosystem.
 
