@@ -2,7 +2,7 @@
 
 > **Self-Displaying Node** — part of the [NodeWall](https://github.com/NodeWall/NodeWall.Tech) ecosystem.
 
-![eNode](images/e-Wall.png)
+![eNode](assets/e-Node.png)
 
 ## Beyond the Headless Server: The Interactive HomeLab Node
 
@@ -67,6 +67,12 @@ eNode is built on second-life hardware. Example units tested by the project (use
 | HP Elite x2 G8 | i7-1185G7 / 16 GB / 256 GB SATA | ~$125 |
 
 Second-life x86 with a display is dramatically cheaper than enterprise rack gear — and becomes a self-controlled interactive node instead of e-waste.
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) — how host + LXC stream the display
+- [Install](docs/INSTALL.md) — one-command setup, options, updating
+- [Security & Scope](docs/SECURITY.md) — what the installer changes on the host, risks
 
 ## Status
 

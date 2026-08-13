@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fastify = Fastify({ logger: true });
 
 fastify.register(staticPlugin, {
-  root: path.join(__dirname, 'public'),
+  root: path.join(__dirname, 'ui'),
   prefix: '/',
 });
 

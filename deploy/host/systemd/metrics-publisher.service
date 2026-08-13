@@ -1,0 +1,13 @@
+[Unit]
+Description=eNode Host Metrics Publisher
+After=network.target mosquitto.service
+
+[Service]
+Type=simple
+ExecStart=/opt/enode/metrics-publisher.sh
+Restart=always
+RestartSec=2
+Environment=METRICS_INTERVAL=10
+
+[Install]
+WantedBy=multi-user.target

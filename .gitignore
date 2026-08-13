@@ -3,5 +3,5 @@ node_modules/
 /tmp/
 *.log
 .DS_Store
-config.local.js
+src/config.local.js
 .secrets/

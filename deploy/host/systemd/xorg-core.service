@@ -1,0 +1,13 @@
+[Unit]
+Description=eNode Xorg Core Server (:0)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/Xorg :0 -seat seat0 -nolisten tcp -config /etc/X11/xorg.conf
+Environment=DISPLAY=:0
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
