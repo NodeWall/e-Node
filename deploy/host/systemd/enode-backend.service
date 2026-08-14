@@ -1,0 +1,16 @@
+[Unit]
+Description=eNode Backend (Fastify)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/e-node
+ExecStart=/usr/bin/node /var/www/e-node/server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

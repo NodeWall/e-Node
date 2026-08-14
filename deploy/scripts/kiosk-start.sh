@@ -40,7 +40,7 @@ pct exec "$CT_ID" -- bash -c "export DISPLAY=:0; exec chromium \
   --no-first-run --no-sandbox \
   --touch-events=enabled --ignore-certificate-errors \
   --user-data-dir=/root/.config/chromium \
-  --disable-dev-shm-usage --disk-cache-dir=/dev/null --disk-cache-size=1 --media-cache-size=1 --nocache \
+  --disable-dev-shm-usage \
   '$BACKEND'" 2>&1
 
 echo "[kiosk-start] Chromium launched."

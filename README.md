@@ -1,8 +1,8 @@
-# ![eNode](assets/eNode-logo.png) eNode
+# ![eNode](ui/assets/eNode-logo.png) eNode
 
 **Self-Displaying Node** — part of the [NodeWall](https://github.com/NodeWall/NodeWall.Tech) ecosystem.
 
-![eNode](assets/eNode.png)
+![eNode](ui/assets/eNode.png)
 
 ## Beyond the Headless Server
 
@@ -121,4 +121,4 @@ vision.
 
 ---
 
-![eNode](assets/eNode-logo-tiny.png) © 2026 NodeWall.
+![eNode](ui/assets/eNode-logo-tiny.png) © 2026 NodeWall.
