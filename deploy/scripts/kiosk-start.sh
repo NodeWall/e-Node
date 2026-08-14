@@ -16,6 +16,17 @@ until pct exec "$CT_ID" -- curl -s -o /dev/null "$BACKEND"; do
 done
 echo "[kiosk-start] Backend is UP."
 
+# Detect real screen resolution from the host X server (no hardcode)
+WIN_SIZE="1920,1080"
+if command -v xdpyinfo >/dev/null 2>&1; then
+  DIM="$(xdpyinfo 2>/dev/null | awk '/dimensions:/ {print $2}')"
+  [ -n "$DIM" ] && WIN_SIZE="$DIM"
+elif command -v xrandr >/dev/null 2>&1; then
+  DIM="$(xrandr 2>/dev/null | awk '/ primary / && /\*/ {print $4}' | head -1)"
+  [ -n "$DIM" ] && WIN_SIZE="$DIM"
+fi
+echo "[kiosk-start] Screen size: $WIN_SIZE"
+
 echo "[kiosk-start] Killing any existing chromium..."
 pct exec "$CT_ID" -- bash -c "pkill -f chromium || true" 2>/dev/null || true
 sleep 1
@@ -25,7 +36,8 @@ pct exec "$CT_ID" -- bash -c "export DISPLAY=:0; nohup openbox --replace >/dev/n
 sleep 2
 
 pct exec "$CT_ID" -- bash -c "export DISPLAY=:0; exec chromium \
-  --kiosk --no-first-run --no-sandbox --disable-gpu --use-gl=swiftshader \
+  --kiosk --window-position=0,0 --window-size=$WIN_SIZE \
+  --no-first-run --no-sandbox --disable-gpu --use-gl=swiftshader \
   --touch-events=enabled --ignore-certificate-errors \
   --user-data-dir=/root/.config/chromium \
   --disable-dev-shm-usage --disk-cache-dir=/dev/null --disk-cache-size=1 --media-cache-size=1 --nocache \

@@ -177,11 +177,19 @@ for u in xorg-core kiosk metrics-publisher; do
 done
 run "install -m 0755 '$HERE/deploy/scripts/kiosk-start.sh' /usr/local/bin/kiosk-start.sh"
 run "install -m 0755 '$HERE/deploy/scripts/metrics-publisher.sh' /usr/local/bin/metrics-publisher.sh"
-run "install -m 0755 '$HERE/deploy/scripts/metrics-subscriber.sh' /usr/local/bin/metrics-subscriber.sh"
 run "systemctl daemon-reload"
 for u in xorg-core kiosk metrics-publisher mosquitto; do
   run "systemctl enable --now ${u}.service"
 done
+
+# --- Inside CT: metrics-subscriber (writes host-metrics.json for the API) ---
+log "Step 6b: Deploying CT-side metrics subscriber..."
+run "pct exec $CT_ID -- bash -c 'apt-get update -qq && apt-get install -y -qq mosquitto-clients python3'"
+run "pct exec $CT_ID -- bash -c 'mkdir -p /usr/local/bin /var/www/e-node/src/data'"
+run "pct exec $CT_ID -- bash -c 'cat > /usr/local/bin/metrics-subscriber.sh' < '$HERE/deploy/scripts/metrics-subscriber.sh'"
+run "pct exec $CT_ID -- bash -c 'chmod +x /usr/local/bin/metrics-subscriber.sh'"
+run "pct exec $CT_ID -- bash -c 'cat > /etc/systemd/system/metrics-subscriber.service' < '$HERE/deploy/host/systemd/metrics-subscriber.service'"
+run "pct exec $CT_ID -- bash -c 'systemctl daemon-reload && systemctl enable --now metrics-subscriber.service'"
 
 # Start backend+kiosk: host-side kiosk-start.sh drives Chromium inside CT via X socket
 run "pct exec $CT_ID -- bash -c 'cd /var/www/e-node && (node server.js > /tmp/enode-backend.log 2>&1 &)'"
