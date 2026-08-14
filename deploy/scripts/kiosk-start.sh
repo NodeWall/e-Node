@@ -37,7 +37,7 @@ sleep 2
 
 pct exec "$CT_ID" -- bash -c "export DISPLAY=:0; exec chromium \
   --kiosk --window-position=0,0 --window-size=$WIN_SIZE \
-  --no-first-run --no-sandbox --disable-gpu --use-gl=swiftshader \
+  --no-first-run --no-sandbox \
   --touch-events=enabled --ignore-certificate-errors \
   --user-data-dir=/root/.config/chromium \
   --disable-dev-shm-usage --disk-cache-dir=/dev/null --disk-cache-size=1 --media-cache-size=1 --nocache \
