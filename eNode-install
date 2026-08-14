@@ -169,7 +169,13 @@ CFG\""
 
 log "Step 6/6: Deploying host services from $HERE/deploy/host ..."
 # Host packages needed for the display stack + MQTT
-run "apt-get install -y -qq xserver-xorg-core x11-xserver-utils libinput-bin intel-microcode iucode-tool mosquitto mosquitto-clients"
+run "apt-get install -y -qq xserver-xorg-core xserver-xorg-input-libinput x11-xserver-utils libinput-bin intel-microcode iucode-tool mosquitto mosquitto-clients"
+# Verify the Xorg libinput input driver is actually present (no hard-coded path)
+if ! dpkg -L xserver-xorg-input-libinput 2>/dev/null | grep -q '/libinput_drv\.so$'; then
+  log "ERROR: xserver-xorg-input-libinput installed but libinput_drv.so not found — input (touch/keyboard) will not work."
+  exit 1
+fi
+log "Verified: Xorg libinput input driver (libinput_drv.so) is present."
 run "mkdir -p /etc/X11/xorg.conf.d /etc/mosquitto/conf.d /opt/enode/bin"
 run "install -m 0644 '$HERE/deploy/host/xorg.conf' /etc/X11/xorg.conf"
 run "install -m 0644 '$HERE/deploy/host/xorg.conf.d/'* /etc/X11/xorg.conf.d/"
