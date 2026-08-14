@@ -20,7 +20,7 @@
 #
 # Logging: every step is printed to the terminal AND appended to the log file.
 
-LOG="/var/log/eNode-install.log"
+LOG="/var/log/eNode-install-$(date +%Y%m%d-%H%M%S).log"
 mkdir -p "$(dirname "$LOG")"
 
 log() {
@@ -153,8 +153,8 @@ run "pct start $CT_ID"
 log "Waiting for CT to boot (15s)..."
 sleep 15
 
-log "Step 3/6: Installing Node.js + git inside CT..."
-run "pct exec $CT_ID -- bash -c 'apt-get update -qq && apt-get install -y -qq git curl nodejs npm'"
+log "Step 3/6: Installing Node.js + git + chromium inside CT..."
+run "pct exec $CT_ID -- bash -c 'apt-get update -qq && apt-get install -y -qq git curl nodejs npm chromium chromium-common'"
 log "Step 4/6: Cloning e-Node repo from GitHub (anonymous)..."
 run "pct exec $CT_ID -- bash -c 'rm -rf /var/www/e-node && git clone $REPO /var/www/e-node'"
 run "pct exec $CT_ID -- bash -c 'cd /var/www/e-node && npm install --omit=dev'"
@@ -179,10 +179,13 @@ log "Verified: Xorg libinput input driver (libinput_drv.so) is present."
 run "mkdir -p /etc/X11/xorg.conf.d /etc/mosquitto/conf.d /opt/enode/bin"
 run "install -m 0644 '$HERE/deploy/host/xorg.conf' /etc/X11/xorg.conf"
 run "install -m 0644 '$HERE/deploy/host/xorg.conf.d/'* /etc/X11/xorg.conf.d/"
-run "install -m 0644 '$HERE/deploy/host/mosquitto/enode.conf' /etc/mosquitto/conf.d/enode.conf"
+# Mosquitto config: substitute HOST_IP for listener
+run "sed \"s/\\${HOST_IP}/$HOST_IP/g\" '$HERE/deploy/host/mosquitto/enode.conf' > /etc/mosquitto/conf.d/enode.conf"
 for u in xorg-core kiosk metrics-publisher; do
   run "install -m 0644 '$HERE/deploy/host/systemd/${u}.service' /etc/systemd/system/${u}.service"
 done
+# kiosk.service: inject actual CT_ID into ExecStart
+run "sed \"s|^ExecStart=/usr/local/bin/kiosk-start.sh$|ExecStart=/usr/local/bin/kiosk-start.sh $CT_ID|\" '$HERE/deploy/host/systemd/kiosk.service' > /etc/systemd/system/kiosk.service"
 run "install -m 0755 '$HERE/deploy/scripts/kiosk-start.sh' /usr/local/bin/kiosk-start.sh"
 run "install -m 0755 '$HERE/deploy/scripts/metrics-publisher.sh' /usr/local/bin/metrics-publisher.sh"
 run "systemctl daemon-reload"
@@ -196,7 +199,8 @@ run "pct exec $CT_ID -- bash -c 'apt-get update -qq && apt-get install -y -qq mo
 run "pct exec $CT_ID -- bash -c 'mkdir -p /usr/local/bin /var/www/e-node/src/data'"
 run "pct exec $CT_ID -- bash -c 'cat > /usr/local/bin/metrics-subscriber.sh' < '$HERE/deploy/scripts/metrics-subscriber.sh'"
 run "pct exec $CT_ID -- bash -c 'chmod +x /usr/local/bin/metrics-subscriber.sh'"
-run "pct exec $CT_ID -- bash -c 'cat > /etc/systemd/system/metrics-subscriber.service' < '$HERE/deploy/host/systemd/metrics-subscriber.service'"
+# Substitute HOST_IP into metrics-subscriber.service
+run "sed \"s/\\${HOST_IP}/$HOST_IP/g\" '$HERE/deploy/host/systemd/metrics-subscriber.service' > /etc/systemd/system/metrics-subscriber.service"
 run "pct exec $CT_ID -- bash -c 'systemctl daemon-reload && systemctl enable --now metrics-subscriber.service'"
 
 # --- Inside CT: backend as systemd unit (survives CT reboot) ---

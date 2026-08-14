@@ -97,7 +97,8 @@ display streaming itself.
 On the Proxmox host (home/lab mini-server):
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash
+git clone https://github.com/NodeWall/e-Node.git /tmp/e-Node
+bash /tmp/e-Node/eNode-install
 ```
 
 `eNode-install` will:
@@ -105,7 +106,7 @@ curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install |
 2. Install Node.js + git, clone this repo from GitHub (anonymous, no credentials).
 3. Deploy host-level services (Xorg, mosquitto, systemd units) from `deploy/host/`.
 4. Enable everything and report status. A full log is written to
-   `/var/log/eNode-install.log`.
+   `/var/log/eNode-install-<timestamp>.log`.
 
 Update later (inside the CT): `bash eNode-update`.
 

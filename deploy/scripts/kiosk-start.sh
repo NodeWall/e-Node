@@ -31,11 +31,8 @@ echo "[kiosk-start] Killing any existing chromium..."
 pct exec "$CT_ID" -- bash -c "pkill -f chromium || true" 2>/dev/null || true
 sleep 1
 
-echo "[kiosk-start] Launching Openbox + Chromium kiosk..."
-pct exec "$CT_ID" -- bash -c "export DISPLAY=:0; nohup openbox --replace >/dev/null 2>&1 &" 2>/dev/null || true
-sleep 2
-
-pct exec "$CT_ID" -- bash -c "export DISPLAY=:0; exec chromium \
+echo "[kiosk-start] Launching Chromium kiosk..."
+pct exec "$CT_ID" -- bash -c "export DISPLAY=:0; exec chromium \\\n"
   --kiosk --window-position=0,0 --window-size=$WIN_SIZE \
   --no-first-run --no-sandbox \
   --touch-events=enabled --ignore-certificate-errors \

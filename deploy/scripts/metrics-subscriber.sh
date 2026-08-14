@@ -9,7 +9,7 @@ mkdir -p "$(dirname "$OUT")"
 
 # Broker = host IP where mosquitto listens (CT reaches it via vmbr0 bridge).
 # The host IP is injected at deploy time via BROKER env (set by eNode-install).
-BROKER="${BROKER:-10.10.10.98}"
+BROKER="${BROKER}"
 
 echo "[metrics-subscriber] Broker: $BROKER, topic: enode/host/metrics"
 while true; do

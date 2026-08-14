@@ -4,7 +4,7 @@ After=network.target mosquitto.service
 
 [Service]
 Type=simple
-ExecStart=/opt/enode/metrics-publisher.sh
+ExecStart=/usr/local/bin/metrics-publisher.sh
 Restart=always
 RestartSec=2
 Environment=METRICS_INTERVAL=10

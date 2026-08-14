@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=root
 # BROKER is set by eNode-install to the host's IP (where mosquitto listens)
-Environment=BROKER=10.10.10.98
+Environment=BROKER=${HOST_IP}
 WorkingDirectory=/var/www/e-node
 ExecStart=/usr/local/bin/metrics-subscriber.sh
 Restart=always
