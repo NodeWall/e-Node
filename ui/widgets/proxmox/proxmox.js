@@ -5,6 +5,20 @@ export const proxmoxWidget = {
     this.render();
     this.refreshMetrics();
     setInterval(() => this.refreshMetrics(), 10000);
+    // Click handler: open Proxmox with dynamic IP
+    this.el.addEventListener('click', async () => {
+      try {
+        const resp = await fetch('/api/system/proxmox-status');
+        const data = await resp.json();
+        const ip = data.ip || data.hostname;
+        if (ip) {
+          window.open(`https://${ip}:8006`, '_blank');
+        }
+      } catch (e) {
+        // fallback
+        window.open('https://localhost:8006', '_blank');
+      }
+    });
   },
   render() {
     this.el.innerHTML = '<div class="widget-card">' +
@@ -20,6 +34,7 @@ export const proxmoxWidget = {
       '<div class="progress-track"><div class="progress-fill orange" id="proxmox-disk-bar"></div></div></div>' +
       '<div class="widget-footer">' +
       '<span id="proxmox-node">hp3</span>' +
+      '<span id="proxmox-ip">-</span>' +
       '<span id="proxmox-uptime"></span></div></div>';
   },
   async refreshMetrics() {
@@ -33,6 +48,7 @@ export const proxmoxWidget = {
       var rb=document.getElementById('proxmox-ram-bar'); if(rb) rb.style.width=(data.memory?.percent||0)+'%';
       var db=document.getElementById('proxmox-disk-bar'); if(db) db.style.width=(data.disk?.percent||0)+'%';
       if(document.getElementById('proxmox-node')) document.getElementById('proxmox-node').textContent=data.hostname||'hp3';
+      if(document.getElementById('proxmox-ip')) document.getElementById('proxmox-ip').textContent=' '+ (data.ip||'-');
       if(document.getElementById('proxmox-uptime')) document.getElementById('proxmox-uptime').textContent='Up:'+Math.round((data.uptime||0)/3600)+'h';
 
     } catch(e) {}
