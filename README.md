@@ -4,6 +4,46 @@
 
 ![eNode](ui/assets/eNode.png)
 
+## What is eNode?
+
+eNode turns a headless Proxmox server into a self-contained physical
+touchscreen web console — without installing a full desktop environment
+on the hypervisor.
+
+A physical server becomes both:
+- a headless hypervisor;
+- and a local touchscreen web console.
+
+The display, touch and keyboard remain attached to the physical server,
+while the web application layer runs separately and is exposed through
+the local display.
+
+```
+Physical server
+    │
+    ├── Display
+    ├── Touch
+    └── Keyboard
+          │
+          ▼
+        eNode
+          │
+    ┌─────┼─────┬───────┐
+    ▼     ▼     ▼       ▼
+ Proxmox  PBS   Home    Cameras
+  WebUI   WebUI Assistant
+                         │
+                      Maps /
+                    other Web apps
+```
+
+eNode is a local web console for a server — not just a web dashboard for Proxmox.
+The Proxmox WebUI is only one of many possible web interfaces; the console can
+switch between different web applications, and the dashboard can aggregate
+information from multiple sources. The physical display, touch and keyboard
+belong to the server, while the web application layer stays isolated from the
+hypervisor host.
+
 ## Beyond the Headless Server
 
 Most servers run headless — a black box you only touch over SSH. **eNode goes further
@@ -89,7 +129,7 @@ eNode is built on second-life hardware. Example units tested by the project (use
 finds — rare low bids, not average market rates):
 
 | Device | Spec | Acquired |
-| :--- | :--- | :--- |
+| :--- | :--- |
 | Dell 7275 2-in-1 | m5 / 8 GB / 128 GB SATA | ~$45 |
 | Dell 7285 2-in-1 | i7-7Y75 / 16 GB / 256 GB NVMe | ~$67 |
 | HP Elite x2 G4 | i5-8365U / 16 GB / 256 GB SATA | ~$85 |
