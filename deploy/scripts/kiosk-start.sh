@@ -1,5 +1,5 @@
 #!/bin/bash
-# eNode Kiosk Start — all GUI inside CT300, display streamed from host X socket
+# eNode Kiosk Start — all GUI inside CT, display streamed from host X socket
 set -e
 
 CT_ID="${1:-300}"
@@ -32,7 +32,7 @@ pct exec "$CT_ID" -- bash -c "pkill -f chromium || true" 2>/dev/null || true
 sleep 1
 
 echo "[kiosk-start] Launching Chromium kiosk..."
-pct exec "$CT_ID" -- bash -c "export DISPLAY=:0; exec chromium \\\n"
+pct exec "$CT_ID" -- bash -c "export DISPLAY=:0; exec chromium \
   --kiosk --window-position=0,0 --window-size=$WIN_SIZE \
   --no-first-run --no-sandbox \
   --touch-events=enabled --ignore-certificate-errors \
