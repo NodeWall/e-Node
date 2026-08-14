@@ -144,6 +144,8 @@ NAMESERVER="$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf 2>/dev/null)
 
 log "Step 1/6: Creating LXC container..."
 run "pct create $CT_ID $TEMPLATE --hostname $CT_NAME --storage $ROOTFS_STORAGE --memory 1024 --cores 1 --rootfs $ROOTFS_STORAGE:6 --net0 name=eth0,bridge=vmbr0,ip=dhcp --features nesting=1 --onboot 1 --unprivileged 0"
+log "Step 1b: Binding host X11 socket into CT (required for kiosk display)..."
+run "sh -c 'echo \"lxc.mount.entry: /tmp/.X11-unix/X0 opt/.X11-unix/X0 none bind,create=file 0 0\" >> /etc/pve/lxc/$CT_ID.conf'"
 log "Step 2/6: Starting container..."
 run "pct start $CT_ID"
 log "Waiting for CT to boot (15s)..."
@@ -181,8 +183,9 @@ for u in xorg-core kiosk metrics-publisher mosquitto; do
   run "systemctl enable --now ${u}.service"
 done
 
-# Start backend+kiosk inside CT
-run "pct exec $CT_ID -- bash -c 'systemctl enable --now kiosk.service 2>/dev/null || bash /usr/local/bin/kiosk-start.sh'"
+# Start backend+kiosk: host-side kiosk-start.sh drives Chromium inside CT via X socket
+run "pct exec $CT_ID -- bash -c 'cd /var/www/e-node && (node server.js > /tmp/enode-backend.log 2>&1 &)'"
+run "/usr/local/bin/kiosk-start.sh $CT_ID"
 
 log "=== Done ==="
 log "eNode CT '$CT_NAME' (VMID $CT_ID) installed. Access the kiosk on the host display."
