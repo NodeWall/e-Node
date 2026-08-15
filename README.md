@@ -102,11 +102,19 @@ bash /tmp/e-Node/eNode-install
 ```
 
 `eNode-install` will:
-1. Create an LXC named `eNode-<host>` (VMID auto-picked or `--id`).
-2. Install Node.js + git, clone this repo from GitHub (anonymous, no credentials).
-3. Deploy host-level services (Xorg, mosquitto, systemd units) from `deploy/host/`.
-4. Enable everything and report status. A full log is written to
-   `/var/log/eNode-install-<timestamp>.log`.
+1. Bootstrap host prerequisites it needs (`git`, `curl`, `ca-certificates`).
+2. Install and **start** the host display stack (Xorg) and the MQTT broker
+   (mosquitto, listening on the host IP) — **before** the CT exists.
+3. Create an LXC named `eNode-<host>` (VMID auto-picked or `--id`), bind the
+   host X socket + input + dri into it, and start it once the host X socket exists.
+4. Inside the CT, install Node.js + chromium, clone this repo from GitHub
+   (anonymous, no credentials), and deploy the backend + metrics subscriber.
+5. Deploy the host `kiosk.service` and verify the full stack. A full log is
+   written to `/var/log/eNode-install-<timestamp>.log`.
+
+> See [Install](docs/INSTALL.md) for the exact supported deployment order and
+> boot/recovery behaviour. The supported path uses a single bare host X server;
+> a second Xorg layer is experimental and out of scope.
 
 Update later (inside the CT): `bash eNode-update`.
 

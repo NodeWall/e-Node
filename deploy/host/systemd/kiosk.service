@@ -1,14 +1,18 @@
 [Unit]
 Description=Kiosk Graphical Stack
-After=xorg-core.service
+After=xorg-core.service pve-guests.service
 Requires=xorg-core.service
+Wants=pve-guests.service
 
 [Service]
-Type=oneshot
+Type=simple
 User=root
 Environment=DISPLAY=:0
-ExecStart=/usr/local/bin/kiosk-start.sh
-RemainAfterExit=yes
+# Wait for the CT to be running before launching Chromium inside it (boot race fix).
+ExecStartPre=/bin/sh -c 'for n in $(seq 1 90); do if pct status __CT_ID__ 2>/dev/null | grep -q running; then exit 0; fi; sleep 1; done; echo "CT __CT_ID__ not running after 90s" >&2; exit 1'
+ExecStart=/usr/local/bin/kiosk-start.sh __CT_ID__
+Restart=always
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target

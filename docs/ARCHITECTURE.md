@@ -18,7 +18,7 @@ streaming from an LXC container to the host's bare X server.
 │            │ shares X socket + /dev/input                  │
 │            ▼                                               │
 │  ┌────────────────────────────────────────────┐         │
-│  │ LXC container "eNode-<node>"  (unprivileged)│         │
+│  │ LXC container "eNode-<node>"  (privileged)  │         │
 │  │                                             │         │
 │  │  Chromium kiosk  ──paints──▶ host X socket  │         │
 │  │        │                                    │         │
@@ -33,11 +33,15 @@ streaming from an LXC container to the host's bare X server.
 ## Data flow (on a finger)
 
 1. Host boots Proxmox. `xorg-core.service` starts a bare X server on the
-   physical display. No login manager, no desktop.
-2. `eNode-install` creates the LXC and passes the X socket + input devices
-   into it (bind mount / device passthrough).
-3. Inside the LXC, `kiosk.service` launches Chromium in kiosk mode pointing
-   at `http://localhost:3000` (the Fastify backend).
+   physical display (and creates `/tmp/.X11-unix/X0`). No login manager, no desktop.
+2. `eNode-install` **starts the host X server and the MQTT broker first**, then
+   creates the LXC and passes the X socket + input devices into it (bind mount /
+   device passthrough). The X11 socket is bound with `optional` and the parent
+   dir `/opt/.X11-unix` is created in the CT rootfs so the bind mount succeeds.
+   The installer refuses to start the CT until the host X socket exists.
+3. Inside the LXC, `kiosk.service` (host-side, `Type=simple`, `After=
+   xorg-core.service pve-guests.service`, waits for the CT to be running) launches
+   Chromium in kiosk mode pointing at `http://localhost:3000` (the Fastify backend).
 4. Chromium renders into the host's X server → the physical screen shows the
    eNode UI instead of a blank console.
 5. The UI is generic: it can show the Proxmox WebUI, Home Assistant, OMV, or
@@ -58,6 +62,16 @@ away (`Ctrl+Shift+F1` / `F2`).
 With a keyboard attached, the host's standard console is always reachable.
 Switch to it and back to the LXC GUI with `Ctrl+Shift+F1` / `F2`. The container
 UI is an overlay, not a cage.
+
+## Known issues / out of scope
+
+- **Physical UI sizing.** Chromium is launched fullscreen at the host X server's
+  real geometry, but on some panels the e-Node UI does not fill the physical
+  display as expected. This is a separate display-mode investigation; it is not
+  patched by the installer.
+- **Second Xorg layer.** A second/compositing Xorg layer is **experimental and
+  not part of the supported deployment**. The supported path uses the single bare
+  host X server described above.
 
 ## File layout (this repo)
 
