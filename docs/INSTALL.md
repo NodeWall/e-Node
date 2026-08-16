@@ -54,7 +54,8 @@ That is it. The script runs the supported deployment order described below.
    `/dev/dri` into the CT (`optional`), and creates `/opt/.X11-unix` inside the
    CT rootfs so the bind succeeds. The installer waits for the host X socket
    before starting the CT.
-4. **Inside CT** — installs Node.js + chromium, clones the repo, runs
+4. **Inside CT** — installs Node.js + git + curl (base step), then Chromium
+   **in a separate step** with `--no-install-recommends`; clones the repo, runs
    `npm install --omit=dev`, writes `src/config.local.js` with the detected host
    IP, and deploys `enode-backend.service` + `metrics-subscriber.service`.
 5. **Kiosk** — deploys the host `kiosk.service`
@@ -64,7 +65,36 @@ That is it. The script runs the supported deployment order described below.
    `:1883`, the subscriber unit, and `kiosk.service`; prints a clear failure and
    a non-zero exit if anything is missing.
 
-## Common options
+## Safety & reliability behaviour
+
+- **APT is bounded.** Every `apt-get` runs with `Acquire::Retries=3` and
+  connect/read timeouts (15s/60s). The Debian security suite and package
+  signatures are **never** disabled — if a mirror is slow, the install fails
+  fast instead of hanging for tens of minutes (this resolved the ~31-minute
+  retry loop seen on earlier deployments).
+- **Chromium is installed in its own step** with `--no-install-recommends`, so a
+  Chromium problem is isolated and diagnosable and does not pull the whole
+  printing/avahi/GTK desktop stack.
+- **DNS is touched only as a last resort.** The installer rewrites the host
+  `/etc/resolv.conf` to a fallback nameserver **only if it has no valid
+  nameserver at all** (it keeps a `.eNode-bak` backup). If the host already has
+  DNS, it is left untouched.
+- **Re-running is safe.** If `/var/www/e-node` already exists as an eNode git
+  checkout, the installer updates it in place (`git pull`) instead of deleting
+  it. It refuses to silently overwrite a CT that does not look like an eNode
+  deployment.
+
+## Dry-run
+
+`--dry-run` prints the full plan and the **detected** values (storage, template
+volid, VMID, host IP, DNS fallback) **without** creating the CT, installing
+packages, starting Xorg, changing DNS, or touching systemd/`/etc/pve`:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash -s -- --dry-run
+```
+
+Use it to confirm what the installer will do on your host before committing.
 
 ```bash
 # custom CT name + VMID

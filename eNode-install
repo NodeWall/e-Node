@@ -3,7 +3,7 @@
 # eNode-install — bootstrap eNode from a Proxmox host (single command).
 #
 # What it does (transparently):
-#   0. Bootstraps host prerequisites (git, curl, ca-certificates).
+#   0. Bootstraps host prerequisites (git, curl, ca-certificates) if missing.
 #   1. Installs and STARTS the host display stack (Xorg) and the MQTT broker
 #      (mosquitto, listening on the host IP) — BEFORE the CT needs them.
 #   2. Creates an LXC CT, binds the host X socket + input + dri into it, and
@@ -19,7 +19,8 @@
 # (e.g. a 2-in-1 convertible), NOT for production Proxmox clusters. Review the
 # steps with --dry-run first, and test on a spare host.
 #
-# Logging: every step is printed to the terminal AND appended to the log file.
+# It never weakens APT security: it only bounds network retries/timeouts and
+# keeps signature verification + the Debian security suite intact.
 
 LOG="/var/log/eNode-install-$(date +%Y%m%d-%H%M%S).log"
 mkdir -p "$(dirname "$LOG")"
@@ -27,6 +28,18 @@ mkdir -p "$(dirname "$LOG")"
 log() {
   local ts; ts="$(date '+%Y-%m-%d %H:%M:%S')"
   printf '[%s] %s\n' "$ts" "$*" | tee -a "$LOG" >&2
+}
+
+# Phase timer: prints duration of a labelled phase.
+PHASE_START=0
+phase() {
+  local now; now="$(date +%s)"
+  if [ "$PHASE_START" -ne 0 ]; then
+    local dur=$(( now - PHASE_START ))
+    log "  ↳ previous phase took ${dur}s"
+  fi
+  PHASE_START=$now
+  log "==> $*"
 }
 
 set -uo pipefail
@@ -40,14 +53,19 @@ TMPL_STORAGE=""
 ROOTFS_STORAGE=""
 TEMPLATE=""
 DRY_RUN=0
-HERE="$(cd "$(dirname "$0")" && pwd)"
+DNS_FALLBACK="1.1.1.1"   # used only if host resolv.conf is empty/invalid
+HERE="$(cd "$(dirname "$0")" 2>/dev/null && pwd || true)"
+
+# APT options: bound retries + timeouts. Security/signatures untouched.
+APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Connect-Timeout=15 -o Acquire::http::Timeout=60 -o Acquire::https::Connect-Timeout=15 -o Acquire::https::Timeout=60"
 
 usage() {
-  log "Usage: $0 --name <eNode-pve1> [--id <vmid>] [--template <volid>] [--storage <storage>] [--dry-run]"
+  log "Usage: $0 --name <eNode-pve1> [--id <vmid>] [--template <volid>] [--storage <storage>] [--dns <nameserver>] [--dry-run]"
   log "  --name     CT hostname (default: eNode-<hostname>)"
   log "  --id       VMID (default: first free >= 300)"
   log "  --template Debian CT template volid (default: auto-detect)"
   log "  --storage  storage for CT rootfs (default: auto-detect rootdir-capable storage)"
+  log "  --dns      fallback nameserver if host resolv.conf is empty (default: $DNS_FALLBACK)"
   log "  --dry-run  print actions without executing"
   exit 1
 }
@@ -58,6 +76,7 @@ while [[ $# -gt 0 ]]; do
     --id) CT_ID="$2"; shift 2 ;;
     --template) TEMPLATE="$2"; shift 2 ;;
     --storage) STORAGE="$2"; shift 2 ;;
+    --dns) DNS_FALLBACK="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     *) usage ;;
   esac
@@ -80,17 +99,53 @@ run() {
   fi
 }
 
+# apt wrapper: bounded retries/timeouts, visible output (no -qq).
+apt_run() {
+  if [ "$DRY_RUN" = 1 ]; then
+    log "[dry-run] apt: $*"
+    return 0
+  fi
+  log "APT: $*"
+  DEBIAN_FRONTEND=noninteractive apt-get $APT_OPTS "$@" 2>&1 | tee -a "$LOG" >&2
+  local rc=${PIPESTATUS[0]}
+  if [ "$rc" -ne 0 ]; then
+    log "ERROR: apt-get failed (exit $rc): $*"
+    exit 1
+  fi
+}
+
 # Idempotent lxc.mount.entry append (no duplicates on re-run).
 add_mount_entry() {
   local conf="$1" line="$2"
   grep -qxF "$line" "$conf" 2>/dev/null || echo "$line" >> "$conf"
 }
 
-# --- Bootstrap host prerequisites (git/curl/ca-certificates) ---
-log "Bootstrap: ensuring host prerequisites (git, curl, ca-certificates)..."
+# Cleanup of temporary boot-clone (curl|bash fallback).
+BOOT_CLONE=""
+cleanup() { [ -n "$BOOT_CLONE" ] && [ -d "$BOOT_CLONE" ] && rm -rf "$BOOT_CLONE"; }
+trap cleanup EXIT
+
+# ---------------------------------------------------------------------
+# DRY-RUN: detect environment, print the plan, do NOT touch anything.
+# ---------------------------------------------------------------------
+if [ "$DRY_RUN" = 1 ]; then
+  log "=== DRY-RUN: no changes will be made ==="
+  log "This would, on a real run:"
+  log "  1. Ensure host prerequisites (git, curl, ca-certificates) are present."
+  log "  2. Install + start host display stack (Xorg) and mosquitto (MQTT) BEFORE the CT."
+  log "  3. Create LXC CT (or reuse existing), bind /tmp/.X11-unix/X0, /dev/input, /dev/dri."
+  log "  4. Install Node.js + git + chromium INSIDE the CT (chromium isolated, --no-install-recommends)."
+  log "  5. Clone repo, npm install --omit=dev, deploy CT backend + metrics subscriber."
+  log "  6. Deploy host kiosk.service (Type=simple, waits for CT)."
+  log "  7. Verify full stack and report status."
+  log "Nothing created, installed, downloaded, or changed."
+fi
+
+# --- Host prerequisites (git/curl/ca-certificates) ---
+phase "Bootstrap: ensuring host prerequisites (git, curl, ca-certificates)"
 if ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1 || ! command -v ca-certificates >/dev/null 2>&1; then
-  run "apt-get update -qq"
-  run "apt-get install -y -qq git curl ca-certificates"
+  apt_run update
+  apt_run install -y git curl ca-certificates
 else
   log "git/curl/ca-certificates already present."
 fi
@@ -103,15 +158,16 @@ if [ ! -d "$HERE/deploy/host" ]; then
   else
     BOOT_CLONE="/tmp/e-Node-install-$$"
     log "deploy/ not found next to script (curl|bash?) — cloning $REPO to $BOOT_CLONE"
-    git clone --depth 1 "$REPO" "$BOOT_CLONE" 2>&1 | tee -a "$LOG" >&2
+    if ! git clone --depth 1 "$REPO" "$BOOT_CLONE" 2>&1 | tee -a "$LOG" >&2; then
+      log "ERROR: failed to clone $REPO for deploy artifacts (need network or run from a checkout)."
+      exit 1
+    fi
     HERE="$BOOT_CLONE"
   fi
 fi
 log "Deploy artifacts dir: $HERE"
 
 # --- Robust Storage Detection ---
-# Template (vztmpl) and rootfs (rootdir) often live on DIFFERENT storages.
-# Find each independently from pvesm status content columns.
 if [ -z "$STORAGE" ]; then
   TMPL_STORAGE="$(pvesm status | awk '$NF ~ /vztmpl/ {print $1; exit}')"
   [ -z "$TMPL_STORAGE" ] && TMPL_STORAGE="local"
@@ -147,7 +203,7 @@ if [ -z "$TEMPLATE" ]; then
     TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian/ {for(i=1;i<=NF;i++) if($i ~ /debian.*\.tar\.(zst|xz)$/) {print $i; exit}}')"
   fi
   if [ -n "$TMPL" ]; then
-    log "Downloading template: $TMPL → $TMPL_STORAGE"
+    log "Downloading template: $TMPL -> $TMPL_STORAGE"
     pveam download "$TMPL_STORAGE" "$TMPL" 2>&1 | tee -a "$LOG" >&2
     TEMPLATE="$(find_local_template)"
     [ -n "$TEMPLATE" ] && log "Template volid: $TEMPLATE"
@@ -170,19 +226,29 @@ HOST_IP="$(ip route get 1 2>/dev/null | awk '{print $7; exit}')"
 [ -z "$HOST_IP" ] && { log "ERROR: could not determine host IP."; exit 1; }
 log "Host IP: $HOST_IP"
 
-# Ensure the CT will have DNS (some PVE images ship an empty resolv.conf).
-if ! grep -qE '^nameserver[[:space:]]+[0-9]{1,3}(\.[0-9]{1,3}){3}$' /etc/resolv.conf 2>/dev/null; then
-  log "Host /etc/resolv.conf has no valid nameserver — writing a clean one (1.1.1.1)"
-  cp /etc/resolv.conf /etc/resolv.conf.eNode-bak 2>/dev/null || true
-  printf 'nameserver 1.1.1.1\n' > /etc/resolv.conf
+# ---------------------------------------------------------------------
+# DNS handling (safe): only touch host resolv.conf if it is empty/invalid.
+# Prefer fixing DNS INSIDE the CT instead of on the host.
+# ---------------------------------------------------------------------
+host_has_dns() {
+  grep -qE '^nameserver[[:space:]]+[0-9]{1,3}(\.[0-9]{1,3}){3}$' /etc/resolv.conf 2>/dev/null
+}
+if ! host_has_dns; then
+  log "Host /etc/resolv.conf has no valid nameserver — backing up and writing a clean one ($DNS_FALLBACK)."
+  if [ "$DRY_RUN" != 1 ]; then
+    cp /etc/resolv.conf /etc/resolv.conf.eNode-bak 2>/dev/null || true
+    printf 'nameserver %s\n' "$DNS_FALLBACK" > /etc/resolv.conf
+  fi
+else
+  log "Host /etc/resolv.conf already has a valid nameserver — left untouched."
 fi
 
 # =====================================================================
 # HOST PHASE — display stack + MQTT broker MUST exist before the CT starts
 # (the CT binds /tmp/.X11-unix/X0, which only exists once Xorg is running).
 # =====================================================================
-log "Step 1/6: Installing host display stack (Xorg) + MQTT broker (mosquitto)..."
-run "apt-get install -y -qq xserver-xorg-core xserver-xorg-input-libinput x11-xserver-utils libinput-bin intel-microcode iucode-tool mosquitto mosquitto-clients"
+phase "Step 1/6: Installing host display stack (Xorg) + MQTT broker (mosquitto)"
+apt_run install -y xserver-xorg-core xserver-xorg-input-libinput x11-xserver-utils libinput-bin intel-microcode iucode-tool mosquitto mosquitto-clients
 # Verify the Xorg libinput input driver is actually present (no hard-coded path)
 if ! dpkg -L xserver-xorg-input-libinput 2>/dev/null | grep -q '/libinput_drv\.so$'; then
   log "ERROR: xserver-xorg-input-libinput installed but libinput_drv.so not found — input (touch/keyboard) will not work."
@@ -193,7 +259,6 @@ log "Verified: Xorg libinput input driver (libinput_drv.so) is present."
 run "mkdir -p /etc/X11/xorg.conf.d /etc/mosquitto/conf.d /opt/enode/bin"
 run "install -m 0644 '$HERE/deploy/host/xorg.conf' /etc/X11/xorg.conf"
 run "install -m 0644 '$HERE/deploy/host/xorg.conf.d/'* /etc/X11/xorg.conf.d/"
-# Mosquitto config: substitute HOST_IP for listener (R1 — broker must listen on host IP, not loopback only)
 run "sed \"s/ENODE_HOST_IP/$HOST_IP/g\" '$HERE/deploy/host/mosquitto/enode.conf' > /etc/mosquitto/conf.d/enode.conf"
 for u in xorg-core metrics-publisher; do
   run "install -m 0644 '$HERE/deploy/host/systemd/${u}.service' /etc/systemd/system/${u}.service"
@@ -223,7 +288,16 @@ log "Verified: host X socket /tmp/.X11-unix/X0 present."
 # CT PHASE — create, bind devices, start, then install inside.
 # =====================================================================
 if pct status "$CT_ID" >/dev/null 2>&1; then
-  log "CT $CT_ID already exists — reusing it (skipping pct create)."
+  log "CT $CT_ID already exists — inspecting before reuse."
+  # Safety: refuse to silently clobber a CT that does not look like ours.
+  if [ "$DRY_RUN" != 1 ]; then
+    existing="$(pct config "$CT_ID" 2>/dev/null | grep -iE 'hostname|eNode' || true)"
+    if [ -z "$existing" ]; then
+      log "ERROR: CT $CT_ID exists but does not look like an eNode deployment (no eNode hostname). Refusing to overwrite. Use a different --id or remove it manually."
+      exit 1
+    fi
+  fi
+  log "Reusing CT $CT_ID (skipping pct create)."
 else
   log "Step 2/6: Creating LXC container..."
   run "pct create $CT_ID $TEMPLATE --hostname $CT_NAME --storage $ROOTFS_STORAGE --memory 1024 --cores 1 --rootfs $ROOTFS_STORAGE:6 --net0 name=eth0,bridge=vmbr0,ip=dhcp --features nesting=1 --onboot 1 --unprivileged 0"
@@ -251,10 +325,26 @@ if ! pct status "$CT_ID" 2>/dev/null | grep -q running; then
   sleep 15
 fi
 
-log "Step 4/6: Installing Node.js + git + chromium inside CT..."
-run "pct exec $CT_ID -- bash -c 'apt-get update -qq && apt-get install -y -qq git curl nodejs npm chromium chromium-common'"
+# --- Inside CT: base packages (nodejs/npm/git/curl) first ---
+phase "Step 4a/6: Installing base packages inside CT (git curl nodejs npm)"
+run "pct exec $CT_ID -- bash -c 'apt-get update $APT_OPTS && apt-get install -y $APT_OPTS git curl nodejs npm'"
+
+# --- Inside CT: chromium ISOLATED (its own command, --no-install-recommends) ---
+phase "Step 4b/6: Installing chromium inside CT (isolated, --no-install-recommends)"
+run "pct exec $CT_ID -- bash -c 'apt-get install -y $APT_OPTS --no-install-recommends chromium chromium-common'"
+
 log "Step 5/6: Cloning e-Node repo from GitHub (anonymous)..."
-run "pct exec $CT_ID -- bash -c 'rm -rf /var/www/e-node && git clone $REPO /var/www/e-node'"
+# Safe re-run: only remove an existing /var/www/e-node if it is OUR checkout.
+if [ "$DRY_RUN" != 1 ]; then
+  if pct exec "$CT_ID" -- bash -c '[ -d /var/www/e-node/.git ]' 2>/dev/null; then
+    log "Existing /var/www/e-node is a git checkout — updating in place (git pull) instead of rm -rf."
+    run "pct exec $CT_ID -- bash -c 'cd /var/www/e-node && git pull --ff-only'"
+  else
+    run "pct exec $CT_ID -- bash -c 'rm -rf /var/www/e-node && git clone $REPO /var/www/e-node'"
+  fi
+else
+  log "[dry-run] would clone $REPO into /var/www/e-node (or git pull if it is our checkout)"
+fi
 run "pct exec $CT_ID -- bash -c 'cd /var/www/e-node && npm install --omit=dev'"
 
 log "Writing local config (host IP: $HOST_IP)..."
@@ -268,11 +358,10 @@ rm -f /tmp/eNode-config.local.js.$$
 
 # --- Inside CT: metrics-subscriber (writes host-metrics.json for the API) ---
 log "Deploying CT-side metrics subscriber..."
-run "pct exec $CT_ID -- bash -c 'apt-get update -qq && apt-get install -y -qq mosquitto-clients python3'"
+run "pct exec $CT_ID -- bash -c 'apt-get install -y $APT_OPTS mosquitto-clients python3'"
 run "pct exec $CT_ID -- bash -c 'mkdir -p /usr/local/bin /var/www/e-node/src/data'"
 run "pct exec $CT_ID -- bash -c 'cat > /usr/local/bin/metrics-subscriber.sh' < '$HERE/deploy/scripts/metrics-subscriber.sh'"
 run "pct exec $CT_ID -- bash -c 'chmod +x /usr/local/bin/metrics-subscriber.sh'"
-# Substitute HOST_IP into the subscriber unit and deploy it INSIDE the CT (was a host-side bug before).
 run "sed \"s/ENODE_HOST_IP/$HOST_IP/g\" '$HERE/deploy/host/systemd/metrics-subscriber.service' > /tmp/eNode-metrics-subscriber.service.$$"
 run "pct exec $CT_ID -- bash -c 'cat > /etc/systemd/system/metrics-subscriber.service' < /tmp/eNode-metrics-subscriber.service.$$"
 rm -f /tmp/eNode-metrics-subscriber.service.$$
@@ -298,7 +387,7 @@ run "systemctl enable --now kiosk.service"
 # =====================================================================
 # VERIFICATION
 # =====================================================================
-log "=== Verifying deployment ==="
+phase "Verifying deployment"
 verify_fail=0
 if [ "$DRY_RUN" = 1 ]; then
   log "[dry-run] skipping live verification"

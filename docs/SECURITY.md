@@ -26,6 +26,10 @@ It also creates an LXC container and installs `xserver-xorg-core`,
 - **Display takeover.** The host's physical console is replaced by the eNode
   kiosk at boot (recoverable via `Ctrl+Shift+F1`/`F2`).
 - **No sandbox for host services.** Host units run on the node, not in a VM.
+- **DNS is changed only if missing.** `eNode-install` rewrites the host
+  `/etc/resolv.conf` to a fallback nameserver **only when it has no valid
+  nameserver** (a `.eNode-bak` backup is kept). If your host already resolves
+  names, nothing is touched. It never removes existing nameservers.
 
 ## Recommendations
 

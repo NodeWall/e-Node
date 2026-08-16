@@ -107,10 +107,18 @@ bash /tmp/e-Node/eNode-install
    (mosquitto, listening on the host IP) — **before** the CT exists.
 3. Create an LXC named `eNode-<host>` (VMID auto-picked or `--id`), bind the
    host X socket + input + dri into it, and start it once the host X socket exists.
-4. Inside the CT, install Node.js + chromium, clone this repo from GitHub
+4. Inside the CT, install Node.js + git + curl, then Chromium in a separate
+   step (`--no-install-recommends`), clone this repo from GitHub
    (anonymous, no credentials), and deploy the backend + metrics subscriber.
-5. Deploy the host `kiosk.service` and verify the full stack. A full log is
-   written to `/var/log/eNode-install-<timestamp>.log`.
+5. Deploy the host `kiosk.service` and verify the full stack. A full, timestamped
+   log is written to `/var/log/eNode-install-<timestamp>.log`.
+
+Run with `--dry-run` first to review every action (and the detected storage,
+template, VMID, host IP) before anything is changed:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash -s -- --dry-run
+```
 
 > See [Install](docs/INSTALL.md) for the exact supported deployment order and
 > boot/recovery behaviour. The supported path uses a single bare host X server;
