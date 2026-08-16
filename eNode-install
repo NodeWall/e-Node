@@ -336,8 +336,22 @@ fi
 # REAL RUN — from here on every action may mutate the system.
 # =====================================================================
 
+# --- Host prerequisites (git/curl/ca-certificates) FIRST ---
+# Must run BEFORE the curl|bash fallback clone below, otherwise a clean Proxmox
+# without `git` would fail to `git clone` the deploy artifacts. This is the
+# "bootstrap → obtain artifacts → deploy" order required to avoid the
+# git → clone → (git needed) circular dependency.
+phase "Bootstrap: ensuring host prerequisites (git, curl, ca-certificates)"
+if ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1 || ! dpkg -s ca-certificates >/dev/null 2>&1; then
+  apt_run update
+  apt_run install -y git curl ca-certificates
+else
+  log "git/curl/ca-certificates already present."
+fi
+
 # If deploy/ is not next to this script (e.g. `curl | bash`), fetch the repo so
-# we have the declarative host files. Does not change architecture — just locates artifacts.
+# we have the declarative host files. Needs `git`, which the bootstrap above
+# just ensured is present.
 if [ ! -d "$HERE/deploy/host" ]; then
   BOOT_CLONE="/tmp/e-Node-install-$$"
   log "deploy/ not found next to script (curl|bash?) — cloning $REPO to $BOOT_CLONE"
@@ -348,15 +362,6 @@ if [ ! -d "$HERE/deploy/host" ]; then
   HERE="$BOOT_CLONE"
 fi
 log "Deploy artifacts dir: $HERE"
-
-# --- Host prerequisites (git/curl/ca-certificates) ---
-phase "Bootstrap: ensuring host prerequisites (git, curl, ca-certificates)"
-if ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1 || ! command -v ca-certificates >/dev/null 2>&1; then
-  apt_run update
-  apt_run install -y git curl ca-certificates
-else
-  log "git/curl/ca-certificates already present."
-fi
 
 # --- Template: download if not local (mutating, but only in real run) ---
 if [ -z "$TEMPLATE" ]; then

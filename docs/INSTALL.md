@@ -25,18 +25,21 @@ only configured PVE source.
 
 ## One-command install
 
-On the Proxmox **host** (not inside a container):
+Run this **on the Proxmox host** (not inside a container, not on your laptop):
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash
 ```
 
-or, after cloning:
+This is the single supported command for users. The installer **installs `git`
+itself** if it is missing, so you do **not** need to run `git`/`apt` by hand
+first. It also runs the Proxmox repository preflight and stops with a clear
+message if a subscription-less host still has the Enterprise repo enabled
+without No-Subscription configured.
 
-```bash
-git clone https://github.com/NodeWall/e-Node.git /tmp/e-Node
-bash /tmp/e-Node/eNode-install
-```
+> Advanced / developer method: if you already cloned the repo, run
+> `bash /path/to/eNode-install` from the checkout. This is equivalent, but the
+> `curl | bash` command above is the recommended path.
 
 That is it. The script runs the supported deployment order described below.
 

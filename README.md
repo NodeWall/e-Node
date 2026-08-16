@@ -94,12 +94,22 @@ display streaming itself.
 
 ## One-Command Install
 
-On the Proxmox host (home/lab mini-server):
+The single canonical command — run it **on the Proxmox host** (not inside a
+container, not on your laptop):
 
 ```bash
-git clone https://github.com/NodeWall/e-Node.git /tmp/e-Node
-bash /tmp/e-Node/eNode-install
+curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash
 ```
+
+That is the only command a user needs. The installer:
+
+- **installs `git` (and `curl`, `ca-certificates`) on the host itself** if they
+  are missing — you do **not** install `git` by hand first;
+- runs a **Proxmox repository preflight** and tells you clearly (before changing
+  anything) if the Enterprise repository is enabled without a working
+  **No-Subscription** repository configured (a fresh, subscription-less Proxmox
+  needs No-Subscription for `apt` to work);
+- then installs the host display stack, creates the CT, and deploys e-Node.
 
 `eNode-install` will:
 1. Bootstrap host prerequisites it needs (`git`, `curl`, `ca-certificates`).
@@ -120,6 +130,10 @@ strictly read-only and never downloads the template or touches the system:
 ```bash
 curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash -s -- --dry-run
 ```
+
+> Advanced / developer method: if you already cloned the repo, you can run
+> `bash /path/to/eNode-install` from the checkout — but the `curl | bash`
+> command above is the supported, recommended path for users.
 
 On a fresh Proxmox host without a subscription, the Enterprise repository is
 enabled and `apt-get update` fails with **401**. The installer detects this
