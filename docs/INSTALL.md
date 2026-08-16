@@ -17,8 +17,11 @@ have to run `apt install` by hand first.
 
 The installer self-provides `git`, `curl`, and `ca-certificates` on the host, and
 `nodejs`, `npm`, `git`, `curl`, `chromium` inside the CT. A working `deb`
-package source and outbound internet (for the GitHub clone + Debian template
-download) are required.
+A working `deb` package source and outbound internet (for the GitHub clone + Debian
+template download) are required. **On a fresh Proxmox host without a subscription,
+enable the No-Subscription repository first** (see "Proxmox repository check"
+below) — the installer will refuse to start if the Enterprise repository is the
+only configured PVE source.
 
 ## One-command install
 
@@ -84,11 +87,46 @@ That is it. The script runs the supported deployment order described below.
   it. It refuses to silently overwrite a CT that does not look like an eNode
   deployment.
 
+## Proxmox repository check (preflight)
+
+A fresh Proxmox VE install enables the **Enterprise** repository
+(`enterprise.proxmox.com`), which returns **HTTP 401** without a valid
+subscription. On such a host a plain `apt-get update` fails, and the old
+installer would die mid-deploy with a cryptic `401 Unauthorized`.
+
+`eNode-install` now runs a **read-only preflight** before touching anything and
+detects the repository state from the DEB822 `.sources` files in
+`/etc/apt/sources.list.d/` (and legacy `.list`):
+
+- If the **Enterprise PVE repo is enabled** and the **No-Subscription repo is not
+  configured** (or is also enabled, which still 401s), the installer prints a
+  clear explanation and exits non-zero **before any deployment** — no partial
+  state, no `apt-get update` 401 in your face.
+- To proceed on a subscription-less host, either fix the repos manually
+  (disable Enterprise, enable `pve-no-subscription`), or pass **`--fix-repos`**,
+  which performs exactly the documented, reversible Proxmox change:
+  - adds `Enabled: false` to every Enterprise source
+  - ensures a `pve-no-subscription` source is present and enabled
+- `--fix-repos` only ever modifies APT source files; it never weakens signature
+  verification or touches anything else.
+
+```bash
+# installer explains the problem and stops:
+curl -sSL .../eNode-install | bash
+#   ERROR: Enterprise PVE repository is enabled but No-Subscription ...
+#   Fix it manually, or re-run with:  eNode-install --fix-repos
+
+# let the installer apply the safe, reversible fix, then deploy:
+curl -sSL .../eNode-install | bash -s -- --fix-repos
+```
+
 ## Dry-run
 
-`--dry-run` prints the full plan and the **detected** values (storage, template
-volid, VMID, host IP, DNS fallback) **without** creating the CT, installing
-packages, starting Xorg, changing DNS, or touching systemd/`/etc/pve`:
+`--dry-run` is **strictly read-only**: it performs only detection (commands
+present, storage, local template, free VMID, host IP, DNS, and the repository
+preflight) and prints the plan with the **detected** values, then exits. It
+**never** downloads the Debian template, runs `apt-get`, creates the CT, starts
+Xorg, changes DNS, or touches systemd/`/etc/pve`:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash -s -- --dry-run

@@ -114,10 +114,21 @@ bash /tmp/e-Node/eNode-install
    log is written to `/var/log/eNode-install-<timestamp>.log`.
 
 Run with `--dry-run` first to review every action (and the detected storage,
-template, VMID, host IP) before anything is changed:
+template, VMID, host IP, repository state) before anything is changed — it is
+strictly read-only and never downloads the template or touches the system:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash -s -- --dry-run
+```
+
+On a fresh Proxmox host without a subscription, the Enterprise repository is
+enabled and `apt-get update` fails with **401**. The installer detects this
+**before** deploying and tells you exactly what to do. Pass `--fix-repos` to let
+it apply the documented, reversible fix (disable Enterprise, enable
+No-Subscription) and continue:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash -s -- --fix-repos
 ```
 
 > See [Install](docs/INSTALL.md) for the exact supported deployment order and

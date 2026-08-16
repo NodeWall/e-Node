@@ -30,6 +30,15 @@ It also creates an LXC container and installs `xserver-xorg-core`,
   `/etc/resolv.conf` to a fallback nameserver **only when it has no valid
   nameserver** (a `.eNode-bak` backup is kept). If your host already resolves
   names, nothing is touched. It never removes existing nameservers.
+- **Repository fix is opt-in and minimal.** `--fix-repos` only edits APT source
+  files in `/etc/apt/sources.list.d/` (adds `Enabled: false` to Enterprise
+  sources, ensures a `pve-no-subscription` source is present). It never weakens
+  APT signature verification, never uses `--allow-insecure`, and never disables
+  the Debian security suite. Without `--fix-repos` the installer **aborts** if it
+  detects a broken Enterprise-only repo config, leaving the host untouched.
+- **`--dry-run` is strictly read-only.** It performs only detection and prints a
+  plan; it never downloads the Debian template, runs `apt-get`, creates the CT,
+  starts Xorg, or modifies any system file.
 
 ## Recommendations
 

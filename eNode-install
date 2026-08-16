@@ -3,15 +3,17 @@
 # eNode-install — bootstrap eNode from a Proxmox host (single command).
 #
 # What it does (transparently):
-#   0. Bootstraps host prerequisites (git, curl, ca-certificates) if missing.
-#   1. Installs and STARTS the host display stack (Xorg) and the MQTT broker
+#   0. Preflight: checks the Proxmox APT repository configuration so a fresh
+#      install does not die with a confusing "401 Unauthorized" mid-deploy.
+#   1. Bootstraps host prerequisites (git, curl, ca-certificates) if missing.
+#   2. Installs and STARTS the host display stack (Xorg) and the MQTT broker
 #      (mosquitto, listening on the host IP) — BEFORE the CT needs them.
-#   2. Creates an LXC CT, binds the host X socket + input + dri into it, and
+#   3. Creates an LXC CT, binds the host X socket + input + dri into it, and
 #      starts the CT once the host X socket exists.
-#   3. Installs Node.js + git + chromium inside the CT, clones NodeWall/e-Node.
-#   4. Deploys CT-side services (backend, metrics subscriber) and the host
+#   4. Installs Node.js + git + chromium inside the CT, clones NodeWall/e-Node.
+#   5. Deploys CT-side services (backend, metrics subscriber) and the host
 #      kiosk + metrics-publisher systemd units.
-#   5. Verifies the full stack and reports status.
+#   6. Verifies the full stack and reports status.
 #
 # ⚠️  SECURITY / SCOPE NOTE
 # This script installs software DIRECTLY on the Proxmox host (Xorg, mosquitto,
@@ -20,7 +22,10 @@
 # steps with --dry-run first, and test on a spare host.
 #
 # It never weakens APT security: it only bounds network retries/timeouts and
-# keeps signature verification + the Debian security suite intact.
+# keeps signature verification + the Debian security suite intact. The
+# repository fix (--fix-repos) only adds "Enabled: false" to Enterprise
+# sources and ensures the documented No-Subscription source is present — a
+# reversible, best-practice Proxmox change.
 
 LOG="/var/log/eNode-install-$(date +%Y%m%d-%H%M%S).log"
 mkdir -p "$(dirname "$LOG")"
@@ -53,6 +58,7 @@ TMPL_STORAGE=""
 ROOTFS_STORAGE=""
 TEMPLATE=""
 DRY_RUN=0
+FIX_REPOS=0
 DNS_FALLBACK="1.1.1.1"   # used only if host resolv.conf is empty/invalid
 HERE="$(cd "$(dirname "$0")" 2>/dev/null && pwd || true)"
 
@@ -60,13 +66,15 @@ HERE="$(cd "$(dirname "$0")" 2>/dev/null && pwd || true)"
 APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Connect-Timeout=15 -o Acquire::http::Timeout=60 -o Acquire::https::Connect-Timeout=15 -o Acquire::https::Timeout=60"
 
 usage() {
-  log "Usage: $0 --name <eNode-pve1> [--id <vmid>] [--template <volid>] [--storage <storage>] [--dns <nameserver>] [--dry-run]"
+  log "Usage: $0 --name <eNode-pve1> [--id <vmid>] [--template <volid>] [--storage <storage>] [--dns <nameserver>] [--fix-repos] [--dry-run]"
   log "  --name     CT hostname (default: eNode-<hostname>)"
   log "  --id       VMID (default: first free >= 300)"
   log "  --template Debian CT template volid (default: auto-detect)"
   log "  --storage  storage for CT rootfs (default: auto-detect rootdir-capable storage)"
   log "  --dns      fallback nameserver if host resolv.conf is empty (default: $DNS_FALLBACK)"
-  log "  --dry-run  print actions without executing"
+  log "  --fix-repos  Safely disable the Proxmox Enterprise repo and enable No-Subscription"
+  log "               (only when the preflight detects a broken repo config). Reversible."
+  log "  --dry-run  print actions WITHOUT executing anything (no download, install, or change)"
   exit 1
 }
 
@@ -77,6 +85,7 @@ while [[ $# -gt 0 ]]; do
     --template) TEMPLATE="$2"; shift 2 ;;
     --storage) STORAGE="$2"; shift 2 ;;
     --dns) DNS_FALLBACK="$2"; shift 2 ;;
+    --fix-repos) FIX_REPOS=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     *) usage ;;
   esac
@@ -84,7 +93,9 @@ done
 
 [ -z "$CT_NAME" ] && CT_NAME="eNode-${NODE_HOSTNAME}"
 
-# --- Helpers ---
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
 run() {
   if [ "$DRY_RUN" = 1 ]; then
     log "[dry-run] $*"
@@ -126,48 +137,116 @@ cleanup() { [ -n "$BOOT_CLONE" ] && [ -d "$BOOT_CLONE" ] && rm -rf "$BOOT_CLONE"
 trap cleanup EXIT
 
 # ---------------------------------------------------------------------
-# DRY-RUN: detect environment, print the plan, do NOT touch anything.
+# Proxmox repository preflight (READ-ONLY detection; may abort).
+#
+# Modern Proxmox VE 9.x uses DEB822 .sources files in
+# /etc/apt/sources.list.d/. Legacy .list files are also supported.
+# A source is "enabled" unless it contains "Enabled: false".
 # ---------------------------------------------------------------------
-if [ "$DRY_RUN" = 1 ]; then
-  log "=== DRY-RUN: no changes will be made ==="
-  log "This would, on a real run:"
-  log "  1. Ensure host prerequisites (git, curl, ca-certificates) are present."
-  log "  2. Install + start host display stack (Xorg) and mosquitto (MQTT) BEFORE the CT."
-  log "  3. Create LXC CT (or reuse existing), bind /tmp/.X11-unix/X0, /dev/input, /dev/dri."
-  log "  4. Install Node.js + git + chromium INSIDE the CT (chromium isolated, --no-install-recommends)."
-  log "  5. Clone repo, npm install --omit=dev, deploy CT backend + metrics subscriber."
-  log "  6. Deploy host kiosk.service (Type=simple, waits for CT)."
-  log "  7. Verify full stack and report status."
-  log "Nothing created, installed, downloaded, or changed."
-fi
+preflight_repos() {
+  local ent_pve=0 no_sub_pve=0 ent_ceph=0 f enabled
+  for f in /etc/apt/sources.list $(ls /etc/apt/sources.list.d/*.sources 2>/dev/null) $(ls /etc/apt/sources.list.d/*.list 2>/dev/null); do
+    [ -e "$f" ] || continue
+    enabled=1
+    grep -qiE '^[[:space:]]*Enabled:[[:space:]]*false' "$f" && enabled=0
+    grep -qiE 'enterprise\.proxmox\.com/debian/pve|pve-enterprise' "$f" && [ "$enabled" = 1 ] && ent_pve=1
+    grep -qiE 'download\.proxmox\.com/debian/pve|pve-no-subscription' "$f" && [ "$enabled" = 1 ] && no_sub_pve=1
+    grep -qiE 'enterprise\.proxmox\.com/debian/ceph' "$f" && [ "$enabled" = 1 ] && ent_ceph=1
+  done
 
-# --- Host prerequisites (git/curl/ca-certificates) ---
-phase "Bootstrap: ensuring host prerequisites (git, curl, ca-certificates)"
-if ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1 || ! command -v ca-certificates >/dev/null 2>&1; then
-  apt_run update
-  apt_run install -y git curl ca-certificates
-else
-  log "git/curl/ca-certificates already present."
-fi
+  log "Repository preflight:"
+  log "  Proxmox Enterprise (PVE) repo:    $([ "$ent_pve" = 1 ] && echo enabled || echo disabled)"
+  log "  Proxmox No-Subscription (PVE):   $([ "$no_sub_pve" = 1 ] && echo enabled || echo disabled)"
+  log "  Proxmox Enterprise (Ceph) repo:  $([ "$ent_ceph" = 1 ] && echo enabled || echo disabled)"
 
-# If deploy/ is not next to this script (e.g. `curl | bash`), fetch the repo so
-# we have the declarative host files. Does not change architecture — just locates artifacts.
-if [ ! -d "$HERE/deploy/host" ]; then
-  if [ "$DRY_RUN" = 1 ]; then
-    log "[dry-run] deploy/ not found next to script; would clone $REPO for deploy artifacts"
-  else
-    BOOT_CLONE="/tmp/e-Node-install-$$"
-    log "deploy/ not found next to script (curl|bash?) — cloning $REPO to $BOOT_CLONE"
-    if ! git clone --depth 1 "$REPO" "$BOOT_CLONE" 2>&1 | tee -a "$LOG" >&2; then
-      log "ERROR: failed to clone $REPO for deploy artifacts (need network or run from a checkout)."
-      exit 1
+  if [ "$ent_pve" = 1 ]; then
+    local reason
+    if [ "$no_sub_pve" = 1 ]; then
+      reason="Enterprise PVE repository is enabled alongside No-Subscription; 'apt-get update' will still receive HTTP 401 from enterprise.proxmox.com and fail."
+    else
+      reason="Enterprise PVE repository is enabled but the No-Subscription repository is not configured; 'apt-get update' will receive HTTP 401 Unauthorized and fail."
     fi
-    HERE="$BOOT_CLONE"
+    if [ "$DRY_RUN" = 1 ]; then
+      log "  [dry-run] DETECTED (reported only, no deploy): $reason"
+      return 0
+    fi
+    if [ "$FIX_REPOS" = 1 ]; then
+      log "Applying Proxmox repository fix (--fix-repos): disable Enterprise, enable No-Subscription."
+      apply_repo_fix
+      return 0
+    fi
+    log ""
+    log "ERROR: Proxmox repository configuration will prevent 'apt-get update' from succeeding."
+    log "  $reason"
+    log ""
+    log "e-Node needs a working APT repository. On a Proxmox host without a subscription,"
+    log "the recommended configuration is:"
+    log "  - disable the Enterprise repository (pve-enterprise / ceph enterprise)"
+    log "  - enable the No-Subscription repository (pve-no-subscription)"
+    log ""
+    log "Fix it manually, or re-run with:  eNode-install --fix-repos"
+    log "  (--fix-repos only adds 'Enabled: false' to Enterprise sources and ensures the"
+    log "   No-Subscription source is present — a documented, reversible Proxmox change.)"
+    log ""
+    log "See: https://pve.proxmox.com/wiki/Package_Repositories"
+    exit 1
   fi
-fi
-log "Deploy artifacts dir: $HERE"
+}
 
-# --- Robust Storage Detection ---
+apply_repo_fix() {
+  # Disable Enterprise sources (idempotent, reversible).
+  local f
+  for f in /etc/apt/sources.list $(ls /etc/apt/sources.list.d/*.sources 2>/dev/null) $(ls /etc/apt/sources.list.d/*.list 2>/dev/null); do
+    [ -e "$f" ] || continue
+    if grep -qiE 'enterprise\.proxmox\.com' "$f"; then
+      if grep -qiE '^[[:space:]]*Enabled:' "$f"; then
+        sed -i -E 's/^[[:space:]]*Enabled:.*/Enabled: false/' "$f"
+      else
+        printf 'Enabled: false\n' >> "$f"
+      fi
+      log "  disabled Enterprise source: $f"
+    fi
+  done
+  # Ensure a No-Subscription PVE source is present + enabled.
+  if ! grep -rqiE 'download\.proxmox\.com/debian/pve|pve-no-subscription' /etc/apt/sources.list.d/ 2>/dev/null; then
+    cat > /etc/apt/sources.list.d/proxmox-no-subscription.sources <<'EOF'
+Types: deb
+URIs: http://download.proxmox.com/debian/pve
+Suites: trixie
+Components: pve-no-subscription
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+EOF
+    log "  created No-Subscription source: /etc/apt/sources.list.d/proxmox-no-subscription.sources"
+  else
+    local g
+    for g in $(grep -rliE 'download\.proxmox\.com/debian/pve|pve-no-subscription' /etc/apt/sources.list.d/ 2>/dev/null); do
+      if grep -qiE '^[[:space:]]*Enabled:[[:space:]]*false' "$g"; then
+        sed -i -E 's/^[[:space:]]*Enabled:.*/Enabled: true/' "$g"
+        log "  enabled No-Subscription source: $g"
+      fi
+    done
+  fi
+}
+
+# ---------------------------------------------------------------------
+# PREFLOW: run read-only detection (used by both dry-run and real run).
+# ---------------------------------------------------------------------
+preflight_repos
+
+# --- Required host commands (read-only check) ---
+missing_cmds=""
+for c in pvesm pct git curl; do
+  command -v "$c" >/dev/null 2>&1 || missing_cmds="$missing_cmds $c"
+done
+# ca-certificates is a virtual metapackage (no binary); check via dpkg.
+dpkg -s ca-certificates >/dev/null 2>&1 || missing_cmds="$missing_cmds ca-certificates"
+if [ -n "$missing_cmds" ]; then
+  log "Prerequisites check: missing:$missing_cmds"
+else
+  log "Prerequisites check: pvesm, pct, git, curl, ca-certificates present."
+fi
+
+# --- Robust Storage Detection (read-only) ---
 if [ -z "$STORAGE" ]; then
   TMPL_STORAGE="$(pvesm status | awk '$NF ~ /vztmpl/ {print $1; exit}')"
   [ -z "$TMPL_STORAGE" ] && TMPL_STORAGE="local"
@@ -181,7 +260,7 @@ else
 fi
 log "Target storage: $STORAGE"
 
-# --- Template Resolution ---
+# --- Template Resolution (read-only local lookup only) ---
 CACHE_DIR="/var/lib/vz/template/cache"
 find_local_template() {
   local f
@@ -189,64 +268,117 @@ find_local_template() {
   [ -z "$f" ] && f="$(ls -1 "$CACHE_DIR" 2>/dev/null | grep -E 'debian.*\.tar\.(zst|xz)$' | head -1)"
   [ -n "$f" ] && echo "${TMPL_STORAGE}:vztmpl/$f"
 }
-
 if [ -z "$TEMPLATE" ]; then
-  log "Searching for a Debian template on $TMPL_STORAGE ..."
+  log "Searching for a local Debian template on $TMPL_STORAGE ..."
   TEMPLATE="$(find_local_template)"
-fi
-
-if [ -z "$TEMPLATE" ]; then
-  log "No Debian template found locally. Attempting auto-download (needs internet)..."
-  pveam update 2>&1 | tee -a "$LOG" >&2 || true
-  TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian-13-standard/ {for(i=1;i<=NF;i++) if($i ~ /debian-13-standard.*\.tar\.(zst|xz)$/) {print $i; exit}}')"
-  if [ -z "$TMPL" ]; then
-    TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian/ {for(i=1;i<=NF;i++) if($i ~ /debian.*\.tar\.(zst|xz)$/) {print $i; exit}}')"
-  fi
-  if [ -n "$TMPL" ]; then
-    log "Downloading template: $TMPL -> $TMPL_STORAGE"
-    pveam download "$TMPL_STORAGE" "$TMPL" 2>&1 | tee -a "$LOG" >&2
-    TEMPLATE="$(find_local_template)"
-    [ -n "$TEMPLATE" ] && log "Template volid: $TEMPLATE"
+  if [ -n "$TEMPLATE" ]; then
+    log "Using local template: $TEMPLATE"
+  else
+    log "No local Debian template found."
+    # Determine what WOULD be downloaded (read-only) for the dry-run report.
+    local_tmpl_name="$(pveam available 2>/dev/null | awk 'NR>1 && /debian-13-standard/ {for(i=1;i<=NF;i++) if($i ~ /debian-13-standard.*\.tar\.(zst|xz)$/) {print $i; exit}}')"
+    [ -z "$local_tmpl_name" ] && local_tmpl_name="debian-13-standard (latest)"
   fi
 fi
-[ -z "$TEMPLATE" ] && { log "ERROR: no Debian template available on $TMPL_STORAGE."; exit 1; }
 
+# --- Free VMID (read-only) ---
 if [ -z "$CT_ID" ]; then
   for id in $(seq 300 399); do
     pct status "$id" >/dev/null 2>&1 || { CT_ID="$id"; break; }
   done
 fi
 [ -z "$CT_ID" ] && { log "ERROR: no free VMID in 300-399"; exit 1; }
-
 log "CT hostname: $CT_NAME | VMID: $CT_ID"
 
-# Host IP — needed by mosquitto listener, backend config and metrics subscriber.
+# --- Host IP (read-only) ---
 HOST_IP="$(ip route get 1 2>/dev/null | awk '{print $7; exit}')"
 [ -z "$HOST_IP" ] && HOST_IP="$(hostname -I | awk '{print $1}')"
 [ -z "$HOST_IP" ] && { log "ERROR: could not determine host IP."; exit 1; }
 log "Host IP: $HOST_IP"
 
-# ---------------------------------------------------------------------
-# DNS handling (safe): only touch host resolv.conf if it is empty/invalid.
-# Prefer fixing DNS INSIDE the CT instead of on the host.
-# ---------------------------------------------------------------------
+# --- DNS check (read-only) ---
 host_has_dns() {
   grep -qE '^nameserver[[:space:]]+[0-9]{1,3}(\.[0-9]{1,3}){3}$' /etc/resolv.conf 2>/dev/null
 }
-if ! host_has_dns; then
-  log "Host /etc/resolv.conf has no valid nameserver — backing up and writing a clean one ($DNS_FALLBACK)."
-  if [ "$DRY_RUN" != 1 ]; then
-    cp /etc/resolv.conf /etc/resolv.conf.eNode-bak 2>/dev/null || true
-    printf 'nameserver %s\n' "$DNS_FALLBACK" > /etc/resolv.conf
-  fi
+if host_has_dns; then
+  log "DNS: host /etc/resolv.conf has a valid nameserver — would be left untouched."
 else
-  log "Host /etc/resolv.conf already has a valid nameserver — left untouched."
+  log "DNS: host /etc/resolv.conf has no valid nameserver — would write a clean one ($DNS_FALLBACK)."
+fi
+
+# ---------------------------------------------------------------------
+# DRY-RUN: we have done only read-only detection. Print the plan and exit.
+# ---------------------------------------------------------------------
+if [ "$DRY_RUN" = 1 ]; then
+  log "=== DRY-RUN PLAN (nothing will be created, installed, downloaded, or changed) ==="
+  log "  CT hostname : $CT_NAME"
+  log "  VMID        : $CT_ID"
+  log "  Storage     : $STORAGE (template: $TMPL_STORAGE, rootfs: $ROOTFS_STORAGE)"
+  if [ -n "$TEMPLATE" ]; then
+    log "  Template    : $TEMPLATE (already local)"
+  else
+    log "  Template    : would auto-download '$local_tmpl_name' via pveam (~100+ MB)"
+  fi
+  log "  Host IP     : $HOST_IP"
+  log "  Would then:"
+  log "    1. Ensure host prereqs (git, curl, ca-certificates)."
+  log "    2. Install + start host Xorg + mosquitto BEFORE the CT."
+  log "    3. Create CT, bind /tmp/.X11-unix/X0, /dev/input, /dev/dri."
+  log "    4. Inside CT: nodejs/npm/git/curl, then chromium (--no-install-recommends)."
+  log "    5. Clone repo, npm install --omit=dev, deploy backend + metrics subscriber."
+  log "    6. Deploy host kiosk.service (Type=simple, waits for CT)."
+  log "    7. Verify full stack."
+  log "=== DRY-RUN: no changes were made ==="
+  exit 0
 fi
 
 # =====================================================================
+# REAL RUN — from here on every action may mutate the system.
+# =====================================================================
+
+# If deploy/ is not next to this script (e.g. `curl | bash`), fetch the repo so
+# we have the declarative host files. Does not change architecture — just locates artifacts.
+if [ ! -d "$HERE/deploy/host" ]; then
+  BOOT_CLONE="/tmp/e-Node-install-$$"
+  log "deploy/ not found next to script (curl|bash?) — cloning $REPO to $BOOT_CLONE"
+  if ! git clone --depth 1 "$REPO" "$BOOT_CLONE" 2>&1 | tee -a "$LOG" >&2; then
+    log "ERROR: failed to clone $REPO for deploy artifacts (need network or run from a checkout)."
+    exit 1
+  fi
+  HERE="$BOOT_CLONE"
+fi
+log "Deploy artifacts dir: $HERE"
+
+# --- Host prerequisites (git/curl/ca-certificates) ---
+phase "Bootstrap: ensuring host prerequisites (git, curl, ca-certificates)"
+if ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1 || ! command -v ca-certificates >/dev/null 2>&1; then
+  apt_run update
+  apt_run install -y git curl ca-certificates
+else
+  log "git/curl/ca-certificates already present."
+fi
+
+# --- Template: download if not local (mutating, but only in real run) ---
+if [ -z "$TEMPLATE" ]; then
+  log "Attempting auto-download of Debian template (needs internet)..."
+  run "pveam update" || true
+  TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian-13-standard/ {for(i=1;i<=NF;i++) if($i ~ /debian-13-standard.*\.tar\.(zst|xz)$/) {print $i; exit}}')"
+  if [ -z "$TMPL" ]; then
+    TMPL="$(pveam available 2>/dev/null | awk 'NR>1 && /debian/ {for(i=1;i<=NF;i++) if($i ~ /debian.*\.tar\.(zst|xz)$/) {print $i; exit}}')"
+  fi
+  if [ -n "$TMPL" ]; then
+    log "Downloading template: $TMPL -> $TMPL_STORAGE"
+    run "pveam download $TMPL_STORAGE $TMPL"
+    TEMPLATE="$(find_local_template)"
+    [ -n "$TEMPLATE" ] && log "Template volid: $TEMPLATE"
+  fi
+fi
+[ -z "$TEMPLATE" ] && { log "ERROR: no Debian template available on $TMPL_STORAGE."; exit 1; }
+
+# ---------------------------------------------------------------------
 # HOST PHASE — display stack + MQTT broker MUST exist before the CT starts
 # (the CT binds /tmp/.X11-unix/X0, which only exists once Xorg is running).
-# =====================================================================
+# ---------------------------------------------------------------------
 phase "Step 1/6: Installing host display stack (Xorg) + MQTT broker (mosquitto)"
 apt_run install -y xserver-xorg-core xserver-xorg-input-libinput x11-xserver-utils libinput-bin intel-microcode iucode-tool mosquitto mosquitto-clients
 # Verify the Xorg libinput input driver is actually present (no hard-coded path)
@@ -272,30 +404,25 @@ done
 run "systemctl restart mosquitto.service"
 
 # Wait for the host X socket — the CT cannot bind it until it exists (B1 root cause).
-if [ "$DRY_RUN" != 1 ]; then
-  x0_n=0
-  until [ -S /tmp/.X11-unix/X0 ]; do
-    sleep 1; x0_n=$((x0_n + 1))
-    if [ "$x0_n" -ge 30 ]; then
-      log "ERROR: /tmp/.X11-unix/X0 not created by xorg-core.service within 30s."
-      exit 1
-    fi
-  done
-fi
+x0_n=0
+until [ -S /tmp/.X11-unix/X0 ]; do
+  sleep 1; x0_n=$((x0_n + 1))
+  if [ "$x0_n" -ge 30 ]; then
+    log "ERROR: /tmp/.X11-unix/X0 not created by xorg-core.service within 30s."
+    exit 1
+  fi
+done
 log "Verified: host X socket /tmp/.X11-unix/X0 present."
 
-# =====================================================================
+# ---------------------------------------------------------------------
 # CT PHASE — create, bind devices, start, then install inside.
-# =====================================================================
+# ---------------------------------------------------------------------
 if pct status "$CT_ID" >/dev/null 2>&1; then
   log "CT $CT_ID already exists — inspecting before reuse."
-  # Safety: refuse to silently clobber a CT that does not look like ours.
-  if [ "$DRY_RUN" != 1 ]; then
-    existing="$(pct config "$CT_ID" 2>/dev/null | grep -iE 'hostname|eNode' || true)"
-    if [ -z "$existing" ]; then
-      log "ERROR: CT $CT_ID exists but does not look like an eNode deployment (no eNode hostname). Refusing to overwrite. Use a different --id or remove it manually."
-      exit 1
-    fi
+  existing="$(pct config "$CT_ID" 2>/dev/null | grep -iE 'hostname|eNode' || true)"
+  if [ -z "$existing" ]; then
+    log "ERROR: CT $CT_ID exists but does not look like an eNode deployment (no eNode hostname). Refusing to overwrite. Use a different --id or remove it manually."
+    exit 1
   fi
   log "Reusing CT $CT_ID (skipping pct create)."
 else
@@ -310,12 +437,10 @@ run "add_mount_entry /etc/pve/lxc/$CT_ID.conf 'lxc.mount.entry: /dev/dri dev/dri
 
 # LXC create=file does not create the parent dir inside the CT; make it now
 # (while the CT is stopped) so the X0 bind mount succeeds on start.
-if [ "$DRY_RUN" != 1 ]; then
-  if ! pct status "$CT_ID" 2>/dev/null | grep -q running; then
-    run "pct mount $CT_ID"
-    run "mkdir -p /var/lib/lxc/$CT_ID/rootfs/opt/.X11-unix"
-    run "pct unmount $CT_ID"
-  fi
+if ! pct status "$CT_ID" 2>/dev/null | grep -q running; then
+  run "pct mount $CT_ID"
+  run "mkdir -p /var/lib/lxc/$CT_ID/rootfs/opt/.X11-unix"
+  run "pct unmount $CT_ID"
 fi
 
 if ! pct status "$CT_ID" 2>/dev/null | grep -q running; then
@@ -335,15 +460,11 @@ run "pct exec $CT_ID -- bash -c 'apt-get install -y $APT_OPTS --no-install-recom
 
 log "Step 5/6: Cloning e-Node repo from GitHub (anonymous)..."
 # Safe re-run: only remove an existing /var/www/e-node if it is OUR checkout.
-if [ "$DRY_RUN" != 1 ]; then
-  if pct exec "$CT_ID" -- bash -c '[ -d /var/www/e-node/.git ]' 2>/dev/null; then
-    log "Existing /var/www/e-node is a git checkout — updating in place (git pull) instead of rm -rf."
-    run "pct exec $CT_ID -- bash -c 'cd /var/www/e-node && git pull --ff-only'"
-  else
-    run "pct exec $CT_ID -- bash -c 'rm -rf /var/www/e-node && git clone $REPO /var/www/e-node'"
-  fi
+if pct exec "$CT_ID" -- bash -c '[ -d /var/www/e-node/.git ]' 2>/dev/null; then
+  log "Existing /var/www/e-node is a git checkout — updating in place (git pull) instead of rm -rf."
+  run "pct exec $CT_ID -- bash -c 'cd /var/www/e-node && git pull --ff-only'"
 else
-  log "[dry-run] would clone $REPO into /var/www/e-node (or git pull if it is our checkout)"
+  run "pct exec $CT_ID -- bash -c 'rm -rf /var/www/e-node && git clone $REPO /var/www/e-node'"
 fi
 run "pct exec $CT_ID -- bash -c 'cd /var/www/e-node && npm install --omit=dev'"
 
@@ -389,49 +510,45 @@ run "systemctl enable --now kiosk.service"
 # =====================================================================
 phase "Verifying deployment"
 verify_fail=0
-if [ "$DRY_RUN" = 1 ]; then
-  log "[dry-run] skipping live verification"
+if [ -S /tmp/.X11-unix/X0 ]; then
+  log "  OK: host X socket /tmp/.X11-unix/X0 present"
 else
-  if [ -S /tmp/.X11-unix/X0 ]; then
-    log "  OK: host X socket /tmp/.X11-unix/X0 present"
-  else
-    log "  FAIL: host X socket /tmp/.X11-unix/X0 missing"; verify_fail=1
-  fi
-  if pct status "$CT_ID" 2>/dev/null | grep -q running; then
-    log "  OK: CT $CT_ID running"
-  else
-    log "  FAIL: CT $CT_ID not running"; verify_fail=1
-  fi
-  if pct exec "$CT_ID" -- curl -fsS http://127.0.0.1:3000/api/health 2>/dev/null | grep -q '"status":"ok"'; then
-    log "  OK: backend /api/health returns status=ok"
-  else
-    log "  FAIL: backend /api/health not ok"; verify_fail=1
-  fi
-  if ss -tlnp 2>/dev/null | grep -q ':1883'; then
-    log "  OK: mosquitto listening on :1883"
-  else
-    log "  FAIL: mosquitto not listening on :1883"; verify_fail=1
-  fi
-  if pct exec "$CT_ID" -- systemctl is-active metrics-subscriber.service 2>/dev/null | grep -q active; then
-    log "  OK: metrics-subscriber.service active in CT"
-  else
-    log "  FAIL: metrics-subscriber.service not active in CT"; verify_fail=1
-  fi
-  if systemctl is-active kiosk.service 2>/dev/null | grep -q active; then
-    log "  OK: kiosk.service active on host"
-  else
-    log "  FAIL: kiosk.service not active on host"; verify_fail=1
-  fi
-  if xlsclients -display :0 2>/dev/null | grep -qi chromium; then
-    log "  OK: Chromium present on physical display :0"
-  else
-    log "  WARN: Chromium not yet visible on :0 (may still be starting)"
-  fi
-  if pct exec "$CT_ID" -- test -s /var/www/e-node/src/data/host-metrics.json 2>/dev/null; then
-    log "  OK: host-metrics.json is being written"
-  else
-    log "  WARN: host-metrics.json not present yet"
-  fi
+  log "  FAIL: host X socket /tmp/.X11-unix/X0 missing"; verify_fail=1
+fi
+if pct status "$CT_ID" 2>/dev/null | grep -q running; then
+  log "  OK: CT $CT_ID running"
+else
+  log "  FAIL: CT $CT_ID not running"; verify_fail=1
+fi
+if pct exec "$CT_ID" -- curl -fsS http://127.0.0.1:3000/api/health 2>/dev/null | grep -q '"status":"ok"'; then
+  log "  OK: backend /api/health returns status=ok"
+else
+  log "  FAIL: backend /api/health not ok"; verify_fail=1
+fi
+if ss -tlnp 2>/dev/null | grep -q ':1883'; then
+  log "  OK: mosquitto listening on :1883"
+else
+  log "  FAIL: mosquitto not listening on :1883"; verify_fail=1
+fi
+if pct exec "$CT_ID" -- systemctl is-active metrics-subscriber.service 2>/dev/null | grep -q active; then
+  log "  OK: metrics-subscriber.service active in CT"
+else
+  log "  FAIL: metrics-subscriber.service not active in CT"; verify_fail=1
+fi
+if systemctl is-active kiosk.service 2>/dev/null | grep -q active; then
+  log "  OK: kiosk.service active on host"
+else
+  log "  FAIL: kiosk.service not active on host"; verify_fail=1
+fi
+if xlsclients -display :0 2>/dev/null | grep -qi chromium; then
+  log "  OK: Chromium present on physical display :0"
+else
+  log "  WARN: Chromium not yet visible on :0 (may still be starting)"
+fi
+if pct exec "$CT_ID" -- test -s /var/www/e-node/src/data/host-metrics.json 2>/dev/null; then
+  log "  OK: host-metrics.json is being written"
+else
+  log "  WARN: host-metrics.json not present yet"
 fi
 
 if [ "$verify_fail" -ne 0 ]; then
