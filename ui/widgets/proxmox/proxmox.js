@@ -5,14 +5,16 @@ export const proxmoxWidget = {
     this.render();
     this.refreshMetrics();
     setInterval(() => this.refreshMetrics(), 10000);
-    // Click handler: open Proxmox with dynamic IP
+    // Click handler: open the Proxmox Web UI using the single source of truth
+    // for the host address (PROXMOX_NODE_URL), served as `proxmoxUrl` by
+    // /api/system/proxmox-status. Avoids re-building the URL from metrics/hostname.
     this.el.addEventListener('click', async () => {
       try {
         const resp = await fetch('/api/system/proxmox-status');
         const data = await resp.json();
-        const ip = data.ip || data.hostname;
-        if (ip) {
-          window.open(`https://${ip}:8006`, '_blank');
+        const url = data.proxmoxUrl;
+        if (url) {
+          window.open(url, '_blank');
         }
       } catch (e) {
         // fallback
@@ -34,7 +36,6 @@ export const proxmoxWidget = {
       '<div class="progress-track"><div class="progress-fill orange" id="proxmox-disk-bar"></div></div></div>' +
       '<div class="widget-footer">' +
       '<span id="proxmox-node">hp3</span>' +
-      '<span id="proxmox-ip">-</span>' +
       '<span id="proxmox-uptime"></span></div></div>';
   },
   async refreshMetrics() {
@@ -47,8 +48,11 @@ export const proxmoxWidget = {
       var cb=document.getElementById('proxmox-cpu-bar'); if(cb) cb.style.width=(data.cpu||0)+'%';
       var rb=document.getElementById('proxmox-ram-bar'); if(rb) rb.style.width=(data.memory?.percent||0)+'%';
       var db=document.getElementById('proxmox-disk-bar'); if(db) db.style.width=(data.disk?.percent||0)+'%';
-      if(document.getElementById('proxmox-node')) document.getElementById('proxmox-node').textContent=data.hostname||'hp3';
-      if(document.getElementById('proxmox-ip')) document.getElementById('proxmox-ip').textContent=' '+ (data.ip||'-');
+      if(document.getElementById('proxmox-node')) {
+        var nodeLabel = data.hostname || 'hp3';
+        if (data.ip) nodeLabel += ' · ' + data.ip;
+        document.getElementById('proxmox-node').textContent = nodeLabel;
+      }
       if(document.getElementById('proxmox-uptime')) document.getElementById('proxmox-uptime').textContent='Up:'+Math.round((data.uptime||0)/3600)+'h';
 
     } catch(e) {}

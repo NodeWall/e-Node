@@ -75,9 +75,11 @@ export default async function systemRoutes(fastify, opts) {
       memory: metrics.memory,
       disk: metrics.disk,
       hostname: metrics.hostname || 'hp3',
+      ip: metrics.ip || '',
       uptime: Math.round(process.uptime()),
       timestamp: Date.now(),
       source: 'mqtt-host',
+      proxmoxUrl: PROXMOX_NODE_URL,
     };
   });
 
