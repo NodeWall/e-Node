@@ -123,38 +123,24 @@ That is the only command a user needs. The installer:
 5. Deploy the host `kiosk.service` and verify the full stack. A full, timestamped
    log is written to `/var/log/eNode-install-<timestamp>.log`.
 
-Run with `--dry-run` first to review every action (and the detected storage,
-template, VMID, host IP, repository state) before anything is changed — it is
-strictly read-only and never downloads the template or touches the system:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash -s -- --dry-run
-```
-
 > Advanced / developer method: if you already cloned the repo, you can run
 > `bash /path/to/eNode-install` from the checkout — but the `curl | bash`
 > command above is the supported, recommended path for users.
 
-On a fresh Proxmox host without a subscription, the Enterprise repository is
-enabled and `apt-get update` fails with **401**. The installer detects this
-**before** deploying and tells you exactly what to do. Pass `--fix-repos` to let
-it apply the documented, reversible fix (disable Enterprise, enable
-No-Subscription) and continue:
+The installer also has optional modes, fully documented in
+[Install](docs/INSTALL.md): `--dry-run` (a strictly read-only preview of what it
+would do, making no changes) and `--fix-repos` (a documented, reversible fix for
+subscription-less Proxmox hosts whose Enterprise repository is still enabled).
 
-```bash
-curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash -s -- --fix-repos
-```
-
-> See [Install](docs/INSTALL.md) for the exact supported deployment order and
-> boot/recovery behaviour. The supported path uses a single bare host X server;
-> a second Xorg layer is experimental and out of scope.
+> See [Install](docs/INSTALL.md) for the exact supported deployment order,
+> options, and boot/recovery behaviour. The supported path uses a single bare
+> host X server; a second Xorg layer is experimental and out of scope.
 
 Update later (inside the CT): `bash eNode-update`.
 
 > ⚠️ **Scope note:** `eNode-install` installs software **directly on the Proxmox host**
 > (Xorg, MQTT broker, systemd units). Intended for **home/lab** use on a dedicated
-> mini-server — not production Proxmox clusters. Run with `--dry-run` first to review, and
-> test on a spare host.
+> mini-server — not production Proxmox clusters. Test on a spare host first.
 
 ## Minimum Requirements
 

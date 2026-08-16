@@ -45,8 +45,8 @@ That is it. The script runs the supported deployment order described below.
 
 > ⚠️ **Scope note:** `eNode-install` installs software **directly on the Proxmox
 > host** (Xorg, MQTT broker, systemd units). It is intended for **home/lab** use
-> on a dedicated mini-server — not production Proxmox clusters. Run with
-> `--dry-run` first to review, and test on a spare host.
+> on a dedicated mini-server — not production Proxmox clusters. Test on a spare
+> host first.
 
 ## What the installer does (and in what order)
 
@@ -90,24 +90,26 @@ That is it. The script runs the supported deployment order described below.
   it. It refuses to silently overwrite a CT that does not look like an eNode
   deployment.
 
-## Proxmox repository check (preflight)
+## Proxmox repository check (preflight) — for subscription-less hosts
 
 A fresh Proxmox VE install enables the **Enterprise** repository
 (`enterprise.proxmox.com`), which returns **HTTP 401** without a valid
 subscription. On such a host a plain `apt-get update` fails, and the old
 installer would die mid-deploy with a cryptic `401 Unauthorized`.
 
-`eNode-install` now runs a **read-only preflight** before touching anything and
+`eNode-install` runs a **read-only preflight** before touching anything and
 detects the repository state from the DEB822 `.sources` files in
 `/etc/apt/sources.list.d/` (and legacy `.list`):
 
 - If the **Enterprise PVE repo is enabled** and the **No-Subscription repo is not
   configured** (or is also enabled, which still 401s), the installer prints a
   clear explanation and exits non-zero **before any deployment** — no partial
-  state, no `apt-get update` 401 in your face.
+  state, no `apt-get update` 401 in your face. This is part of the normal
+  install flow and needs no extra flag.
 - To proceed on a subscription-less host, either fix the repos manually
   (disable Enterprise, enable `pve-no-subscription`), or pass **`--fix-repos`**,
-  which performs exactly the documented, reversible Proxmox change:
+  an **optional** mode that performs exactly the documented, reversible Proxmox
+  change:
   - adds `Enabled: false` to every Enterprise source
   - ensures a `pve-no-subscription` source is present and enabled
 - `--fix-repos` only ever modifies APT source files; it never weakens signature
@@ -123,13 +125,14 @@ curl -sSL .../eNode-install | bash
 curl -sSL .../eNode-install | bash -s -- --fix-repos
 ```
 
-## Dry-run
+## `--dry-run` (optional / diagnostic)
 
-`--dry-run` is **strictly read-only**: it performs only detection (commands
-present, storage, local template, free VMID, host IP, DNS, and the repository
-preflight) and prints the plan with the **detected** values, then exits. It
-**never** downloads the Debian template, runs `apt-get`, creates the CT, starts
-Xorg, changes DNS, or touches systemd/`/etc/pve`:
+`--dry-run` is **strictly read-only** and entirely optional — you do **not** need
+to run it before installing. It performs only detection (commands present,
+storage, local template, free VMID, host IP, DNS, and the repository preflight)
+and prints the plan with the **detected** values, then exits. It **never**
+downloads the Debian template, runs `apt-get`, creates the CT, starts Xorg,
+changes DNS, or touches systemd/`/etc/pve`:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash -s -- --dry-run
@@ -144,8 +147,8 @@ bash eNode-install --name eNode-pve1 --id 301
 # preview every action without executing
 bash eNode-install --dry-run
 
-# custom storage / template
-bash eNode-install --storage local-zfs --template local:vztmpl/debian-12-standard_*.tar.zst
+# custom storage / template (Debian 13 is the standard target)
+bash eNode-install --storage local-zfs --template local:vztmpl/debian-13-standard_*.tar.zst
 ```
 
 ## Updating

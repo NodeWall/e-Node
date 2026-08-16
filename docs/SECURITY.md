@@ -43,7 +43,8 @@ It also creates an LXC container and installs `xserver-xorg-core`,
 ## Recommendations
 
 1. **Test on a spare host first.** A cheap convertible/lab box is ideal.
-2. Use `--dry-run` to review every action before executing.
+2. You may use `--dry-run` to preview every action before executing on a real
+   host (it makes no changes).
 3. Do **not** run on a production Proxmox cluster without isolating eNode on a
    dedicated node.
 4. The LXC clones the repo **anonymously** (no token, no push access). Only
