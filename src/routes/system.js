@@ -10,6 +10,10 @@ const HOST_METRICS_FILE = path.join(DATA_DIR, 'host-metrics.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
+// ControlPanel -> Dashboard Window IPC (lightweight command channel).
+// ControlPanel POSTs a command; the Dashboard bridge polls state and acts.
+let lastCpCommand = { cmd: null, ts: 0 };
+
 function readHostMetrics() {
   try {
     if (fs.existsSync(HOST_METRICS_FILE)) {
@@ -129,4 +133,14 @@ export default async function systemRoutes(fastify, opts) {
       }
     }
   });
+
+  // ControlPanel -> Dashboard Window command channel (Home / Logo etc.)
+  fastify.post('/api/cp/command', async (req) => {
+    const { cmd } = req.body || {};
+    if (!cmd) return reply.code(400).send({ error: 'missing cmd' });
+    lastCpCommand = { cmd, ts: Date.now() };
+    return { ok: true, cmd, ts: lastCpCommand.ts };
+  });
+
+  fastify.get('/api/cp/state', async () => lastCpCommand);
 }

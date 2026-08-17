@@ -1,0 +1,152 @@
+:root {
+  --cp-height: 60px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+  color: #e0e0e0;
+  background: #080808;
+}
+
+/* === ControlPanel (autonomous, mirrors Legacy Slot0 look) === */
+#controlpanel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  height: var(--cp-height);
+  background-color: #080808;
+  border-top: 1px solid #1a1a1a;
+  z-index: 1000;
+  font-family: sans-serif;
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr 2fr 1fr;
+  grid-template-rows: 100%;
+  align-items: center;
+  padding: 0 8px;
+}
+
+/* Col 1: Logo */
+.cp-col-logo {
+  display: flex; padding-left: 12px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* Col 2: Brightness */
+.cp-col-brightness {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Col 3: Home (center) */
+.cp-col-home {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Col 4: Volume */
+.cp-col-volume {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Col 5: Settings */
+.cp-col-settings {
+  display: flex; padding-right: 12px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Logo button */
+.cp-logo-btn {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  padding: 6px;
+  border-radius: 8px;
+}
+.cp-logo-btn:hover { background: rgba(255,255,255,0.05); }
+.cp-logo-btn:active { transform: scale(0.92); opacity: 0.8; }
+
+/* Buttons */
+.cp-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+  color: #e0e0e0;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.12s ease;
+}
+.cp-btn:hover { background: rgba(255,255,255,0.12); }
+.cp-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.15); }
+
+.cp-btn-home {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(0,163,255,0.15);
+  color: #00a3ff;
+}
+.cp-btn-home:hover { background: rgba(0,163,255,0.25); }
+
+/* Sliders — 80% of column width, touch-friendly */
+.cp-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 80%;
+}
+.cp-icon {
+  color: #888;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+.cp-slider {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #333;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+.cp-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #00a3ff;
+  cursor: pointer;
+}
+.cp-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #00a3ff;
+  cursor: pointer;
+  border: none;
+}

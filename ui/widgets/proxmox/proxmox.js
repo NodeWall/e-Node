@@ -14,11 +14,24 @@ export const proxmoxWidget = {
         const data = await resp.json();
         const url = data.proxmoxUrl;
         if (url) {
-          window.open(url, '_blank');
+          // Open inside the SAME Dashboard Window (iframe context), not a new tab.
+          // Use the reverse proxy so Proxmox frame-options/CSP don't block embedding.
+          const vp = window.parent && window.parent.document
+            ? window.parent.document.getElementById('main-viewport')
+            : null;
+          if (vp) {
+            vp.src = '/api/proxy/proxmox/';
+          } else {
+            window.location.href = '/api/proxy/proxmox/';
+          }
         }
       } catch (e) {
         // fallback
-        window.open('https://localhost:8006', '_blank');
+        const vp = window.parent && window.parent.document
+          ? window.parent.document.getElementById('main-viewport')
+          : null;
+        if (vp) vp.src = '/api/proxy/proxmox/';
+        else window.location.href = '/api/proxy/proxmox/';
       }
     });
   },
