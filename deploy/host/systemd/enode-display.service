@@ -1,0 +1,18 @@
+[Unit]
+Description=e-Node Display Runtime (two-window)
+After=xorg-core.service pve-guests.service
+Requires=xorg-core.service
+Wants=pve-guests.service
+
+[Service]
+Type=simple
+User=root
+Environment=DISPLAY=:0
+# Wait for the CT to be running before launching Chromium inside it (boot race fix).
+ExecStartPre=/bin/sh -c 'for n in $(seq 1 90); do if pct status 300 2>/dev/null | grep -q running; then exit 0; fi; sleep 1; done; echo "CT 300 not running after 90s" >&2; exit 1'
+ExecStart=/usr/local/bin/enode-display-start.sh 300
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
