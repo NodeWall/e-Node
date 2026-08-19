@@ -92,6 +92,19 @@ full web interfaces of services you already run (Proxmox, PBS, Home Assistant, O
 anything else with a web UI). The dashboard is a showcase, not the core — the core is the
 display streaming itself.
 
+## Display Architecture — Current vs Target
+
+**Current (transitional, implemented):** eNode renders the UI as **two independent Chromium X11 windows** on the host's single bare X server (`:0`), with **no window manager**:
+
+- **Dashboard Window** — a Chromium kiosk pointed at the eNode Dashboard (`index.html` → `#main-viewport` → `dashboard.html`). It still hosts the **legacy `Slot0`** control strip.
+- **ControlPanel Window** — a second, autonomous Chromium kiosk pointed at `controlpanel.html`, providing the new control surface (logo / brightness / home / volume / settings) as a separate X11 window.
+
+Both windows are launched by the `enode-display` runtime (`enode-display.service` on the host → `enode-display-start.sh`, which starts two Chromium instances inside the CT with separate `--user-data-dir`). The legacy single-window `kiosk.service`/`kiosk-start.sh` remain in the repo as a fallback but are no longer started by a clean deployment.
+
+`Slot0` and the new `ControlPanel` coexist **by design** during this transitional stage.
+
+**Target (remaining migration, not yet done):** remove legacy `Slot0`/`index.html`/`#main-viewport`, migrate Spoke navigation to top-level in the Dashboard Window, make Home (from ControlPanel) drive the current Dashboard Chromium tab, and retire the remaining legacy tails. See `docs/ARCHITECTURE.md` for details.
+
 ## One-Command Install
 
 The single canonical command — run it **on the Proxmox host** (not inside a

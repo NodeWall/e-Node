@@ -499,16 +499,19 @@ run "pct exec $CT_ID -- bash -c 'cat > /etc/systemd/system/enode-backend.service
 run "pct exec $CT_ID -- bash -c 'systemctl daemon-reload && systemctl enable --now enode-backend.service'"
 
 # =====================================================================
-# KIOSK PHASE — host service that drives Chromium inside the CT.
+# DISPLAY PHASE — host service that drives the two-window Chromium runtime
+# inside the CT (Dashboard window + autonomous ControlPanel window on Xorg :0).
+# Legacy single-window kiosk.service/kiosk-start.sh remain in the repo as a
+# fallback but are no longer activated by a clean deployment.
 # =====================================================================
-log "Step 6/6: Deploying host kiosk service (Type=simple, waits for CT)..."
-SEDC="/tmp/eNode-kiosk.service.$$"
-sed "s/__CT_ID__/$CT_ID/g" "$HERE/deploy/host/systemd/kiosk.service" > "$SEDC"
-run "install -m 0644 '$SEDC' /etc/systemd/system/kiosk.service"
+log "Step 6/6: Deploying host enode-display service (two-window Xorg runtime)..."
+SEDC="/tmp/eNode-display.service.$$"
+sed "s/__CT_ID__/$CT_ID/g" "$HERE/deploy/host/systemd/enode-display.service" > "$SEDC"
+run "install -m 0644 '$SEDC' /etc/systemd/system/enode-display.service"
 rm -f "$SEDC"
-run "install -m 0755 '$HERE/deploy/scripts/kiosk-start.sh' /usr/local/bin/kiosk-start.sh"
+run "install -m 0755 '$HERE/deploy/scripts/enode-display-start.sh' /usr/local/bin/enode-display-start.sh"
 run "systemctl daemon-reload"
-run "systemctl enable --now kiosk.service"
+run "systemctl enable --now enode-display.service"
 
 # =====================================================================
 # VERIFICATION
@@ -540,10 +543,10 @@ if pct exec "$CT_ID" -- systemctl is-active metrics-subscriber.service 2>/dev/nu
 else
   log "  FAIL: metrics-subscriber.service not active in CT"; verify_fail=1
 fi
-if systemctl is-active kiosk.service 2>/dev/null | grep -q active; then
-  log "  OK: kiosk.service active on host"
+if systemctl is-active enode-display.service 2>/dev/null | grep -q active; then
+  log "  OK: enode-display.service active on host"
 else
-  log "  FAIL: kiosk.service not active on host"; verify_fail=1
+  log "  FAIL: enode-display.service not active on host"; verify_fail=1
 fi
 if xlsclients -display :0 2>/dev/null | grep -qi chromium; then
   log "  OK: Chromium present on physical display :0"
@@ -562,6 +565,6 @@ if [ "$verify_fail" -ne 0 ]; then
 fi
 
 log "=== Done ==="
-log "eNode CT '$CT_NAME' (VMID $CT_ID) installed. Access the kiosk on the host display."
+log "eNode CT '$CT_NAME' (VMID $CT_ID) installed. Access the eNode display on the host."
 log "Update later with: eNode-update (inside CT: cd /var/www/e-node && git pull && npm install)"
 log "Install log: $LOG"

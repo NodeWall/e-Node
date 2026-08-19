@@ -64,11 +64,15 @@ That is it. The script runs the supported deployment order described below.
    **in a separate step** with `--no-install-recommends`; clones the repo, runs
    `npm install --omit=dev`, writes `src/config.local.js` with the detected host
    IP, and deploys `enode-backend.service` + `metrics-subscriber.service`.
-5. **Kiosk** — deploys the host `kiosk.service`
+5. **Display** — deploys the host `enode-display.service`
    (`Type=simple`, `After=xorg-core.service pve-guests.service`, waits for the
-   CT, `Restart=always`) which drives Chromium inside the CT onto the host `:0`.
+   CT) which launches **two** independent Chromium kiosk instances inside the CT
+   onto the host `:0` (Dashboard window → `/`, ControlPanel window →
+   `/controlpanel.html`), each with its own `--user-data-dir`. The legacy
+   single-window `kiosk.service`/`kiosk-start.sh` remain in the repo as a
+   fallback but are not started by a clean deployment.
 6. **Verify** — checks X0, CT running, backend `/api/health`, mosquitto on
-   `:1883`, the subscriber unit, and `kiosk.service`; prints a clear failure and
+   `:1883`, the subscriber unit, and `enode-display.service`; prints a clear failure and
    a non-zero exit if anything is missing.
 
 ## Safety & reliability behaviour
@@ -163,9 +167,9 @@ Pulls the latest `main` and reinstalls Node deps. No reinstall needed.
 
 ## Boot / recovery behaviour
 
-- `kiosk.service` does **not** start until the CT is running (`ExecStartPre`
+- `enode-display.service` does **not** start until the CT is running (`ExecStartPre`
   waits up to 90s for `pct status <id> running`) and `xorg-core.service` is up,
-  so a cold host boot recovers the kiosk automatically once the CT boots.
+  so a cold host boot recovers the two-window display automatically once the CT boots.
 - `enode-backend.service`, `metrics-subscriber.service`, and `metrics-publisher.service`
   all use `Restart=always`. A CT reboot self-heals the UI and metrics.
 

@@ -39,9 +39,19 @@ streaming from an LXC container to the host's bare X server.
    device passthrough). The X11 socket is bound with `optional` and the parent
    dir `/opt/.X11-unix` is created in the CT rootfs so the bind mount succeeds.
    The installer refuses to start the CT until the host X socket exists.
-3. Inside the LXC, `kiosk.service` (host-side, `Type=simple`, `After=
-   xorg-core.service pve-guests.service`, waits for the CT to be running) launches
-   Chromium in kiosk mode pointing at `http://localhost:3000` (the Fastify backend).
+3. Inside the LXC, `enode-display.service` (host-side, `Type=simple`,
+   `After=xorg-core.service pve-guests.service`, waits for the CT to be running)
+   launches **two** independent Chromium kiosk instances inside the CT, onto the
+   host `:0`, each with its own `--user-data-dir`:
+   - **Dashboard Window** → `http://localhost:3000/` (legacy `index.html` →
+     `#main-viewport` → `dashboard.html`, still hosting the legacy `Slot0` strip).
+   - **ControlPanel Window** → `http://localhost:3000/controlpanel.html` (the new
+     autonomous control surface).
+   This is the **current transitional** display architecture: two X11 windows
+   coexist, with `Slot0` and `ControlPanel` both visible by design while the
+   migration away from legacy `Slot0`/`#main-viewport` is still in progress.
+   The legacy single-window `kiosk.service`/`kiosk-start.sh` remain in the repo
+   as a fallback but are not started by a clean deployment.
 4. Chromium renders into the host's X server → the physical screen shows the
    eNode UI instead of a blank console.
 5. The UI is generic: it can show the Proxmox WebUI, Home Assistant, OMV, or
