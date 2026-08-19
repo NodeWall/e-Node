@@ -6,7 +6,7 @@ CT_ID="${1:-300}"
 exec pct exec "$CT_ID" -- bash -c '
   set -u
   BACKEND="http://127.0.0.1:3000"
-  CONTROL_PANEL_HEIGHT=60
+  CONTROL_PANEL_WINDOW_HEIGHT=60
   export DISPLAY=:0
 
   echo "[enode-display] Waiting for eNode Backend on :3000 (max 30s)..."
@@ -20,16 +20,16 @@ exec pct exec "$CT_ID" -- bash -c '
   DIM=$(xdpyinfo 2>/dev/null | awk "/dimensions:/ {print \$2}")
   [ -z "$DIM" ] && DIM="1920x1080"
   DISPLAY_X=${DIM%x*}; DISPLAY_Y=${DIM#*x}
-  DASHBOARD_HEIGHT=$((DISPLAY_Y - CONTROL_PANEL_HEIGHT))
-  echo "[enode-display] Display=${DISPLAY_X}x${DISPLAY_Y} ControlPanel_height=${CONTROL_PANEL_HEIGHT} Dashboard_height=${DASHBOARD_HEIGHT}"
+  DASHBOARD_WINDOW_HEIGHT=$((DISPLAY_Y - CONTROL_PANEL_WINDOW_HEIGHT))
+  echo "[enode-display] Display=${DISPLAY_X}x${DISPLAY_Y} ControlPanel_height=${CONTROL_PANEL_WINDOW_HEIGHT} Dashboard_height=${DASHBOARD_WINDOW_HEIGHT}"
 
-  chromium --kiosk --window-position=0,0 --window-size=${DISPLAY_X},${DASHBOARD_HEIGHT} \
+  chromium --kiosk --window-position=0,0 --window-size=${DISPLAY_X},${DASHBOARD_WINDOW_HEIGHT} \
     --no-first-run --no-sandbox --touch-events=enabled --ignore-certificate-errors \
     --user-data-dir=/root/.config/chromium --disable-dev-shm-usage \
     "$BACKEND" &
   P_DASH=$!
 
-  chromium --kiosk --window-position=0,${DASHBOARD_HEIGHT} --window-size=${DISPLAY_X},${CONTROL_PANEL_HEIGHT} \
+  chromium --kiosk --window-position=0,${DASHBOARD_WINDOW_HEIGHT} --window-size=${DISPLAY_X},${CONTROL_PANEL_WINDOW_HEIGHT} \
     --no-first-run --no-sandbox --touch-events=enabled --ignore-certificate-errors \
     --user-data-dir=/root/.config/chromium-controlpanel --disable-dev-shm-usage \
     "$BACKEND/controlpanel.html" &
