@@ -20,7 +20,8 @@ body {
 /* === ControlPanel (autonomous, mirrors Legacy Slot0 look) === */
 #controlpanel {
   position: fixed;
-  bottom: 0;
+  top: 0;
+  bottom: auto;
   left: 0;
   width: 100vw;
   height: var(--cp-height);

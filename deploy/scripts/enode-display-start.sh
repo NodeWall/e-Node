@@ -9,6 +9,15 @@ exec pct exec "$CT_ID" -- bash -c '
   CONTROL_PANEL_WINDOW_HEIGHT=60
   export DISPLAY=:0
 
+  # Ensure the X11 socket is reachable at the standard path inside the CT.
+  # The host X socket is bind-mounted at /opt/.X11-unix/X0; without a symlink to
+  # /tmp/.X11-unix/X0 (what DISPLAY=:0 resolves to), Chromium fails with
+  # "Missing X server or $DISPLAY" and the display never appears after a reboot.
+  mkdir -p /tmp/.X11-unix
+  if [ -S /opt/.X11-unix/X0 ] && [ ! -e /tmp/.X11-unix/X0 ]; then
+    ln -sf /opt/.X11-unix/X0 /tmp/.X11-unix/X0
+  fi
+
   echo "[enode-display] Waiting for eNode Backend on :3000 (max 30s)..."
   N=0
   until curl -s -o /dev/null "$BACKEND"; do
