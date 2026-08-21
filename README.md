@@ -54,7 +54,7 @@ Not a thin client. Not a wall tablet. The server itself becomes the interface.
 
 Instead of the **standard text console**, the host's screen renders a full HTML page served
 from the node's own LXC. This is not GPU passthrough — it is display streaming: the host
-runs a bare X server, the LXC shares the X socket, and a Chromium kiosk inside the container
+runs a bare X server, the LXC shares the X socket, and Chromium inside the container
 paints the UI straight onto the monitor.
 
 Works with **any** display. A touchscreen is just a bonus interaction layer — the core idea
@@ -68,42 +68,33 @@ The container UI is an overlay, not a cage.
 ## Why it fits on modest hardware
 
 eNode is built around a **minimal LXC** — no Desktop Environment, no heavy browser stack
-beyond what the kiosk needs. Tested on a Dell 7275 with just 8 GB of RAM: the display layer
+beyond what the display needs. Tested on a Dell 7275 with just 8 GB of RAM: the display layer
 sips resources, leaving the rest for the VMs and containers you actually want to run. You can
 scale the container up (add RAM, CPU, disk) after install if your box allows. Start small,
 grow later.
 
-## Architectural Pillars
+## Architecture
 
-### 🧱 Monolithic Two-Tier Design
-eNode runs a strict, resource-optimized monolith:
+eNode runs in two tiers:
 
-- **Tier 1 — Physical Host (Proxmox VE):** Provides KVM/LXC, allocates the framebuffer,
+- **Tier 1 — Physical Host (Proxmox VE):** provides KVM/LXC, allocates the framebuffer,
   launches a bare X server, and passes the graphics socket + input devices into the
   container.
-- **Tier 2 — Monolithic LXC:** Contains *everything* — the Node.js/Fastify backend, static
-  UI assets, metrics collection, and the Chromium kiosk that renders the interface onto the
-  host's display.
+- **Tier 2 — LXC:** contains the Node.js/Fastify backend, the static UI assets, metrics
+  collection, and the Chromium instances that render the interface onto the host's display.
 
-### 🎯 Hub & Spoke Dashboard (example workload)
-The display layer is generic — it can show *any* web UI. A reference **Hub & Spoke**
-dashboard demonstrates this: a persistent home surface (`Slot0`) with widgets that launch
-full web interfaces of services you already run (Proxmox, PBS, Home Assistant, OMV, and
-anything else with a web UI). The dashboard is a showcase, not the core — the core is the
-display streaming itself.
+The display is rendered as **two independent Chromium X11 windows** on the host's single bare
+X server (`:0`), with **no window manager**:
 
-## Display Architecture — Current vs Target
+- **Dashboard X11 Window** — shows the **Dashboard UI** (widget grid: clock, maps, network,
+  Proxmox, cameras, Home Assistant).
+- **ControlPanel X11 Window** — shows the **ControlPanel UI** (control bar: logo, brightness,
+  home, volume, settings).
 
-**Current (transitional, implemented):** eNode renders the UI as **two independent Chromium X11 windows** on the host's single bare X server (`:0`), with **no window manager**:
-
-- **Dashboard Window** — a Chromium kiosk pointed at the eNode Dashboard (`index.html` → `#main-viewport` → `dashboard.html`). It still hosts the **legacy `Slot0`** control strip.
-- **ControlPanel Window** — a second, autonomous Chromium kiosk pointed at `controlpanel.html`, providing the new control surface (logo / brightness / home / volume / settings) as a separate X11 window.
-
-Both windows are launched by the `enode-display` runtime (`enode-display.service` on the host → `enode-display-start.sh`, which starts two Chromium instances inside the CT with separate `--user-data-dir`). The legacy single-window `kiosk.service`/`kiosk-start.sh` remain in the repo as a fallback but are no longer started by a clean deployment.
-
-`Slot0` and the new `ControlPanel` coexist **by design** during this transitional stage.
-
-**Target (remaining migration, not yet done):** remove legacy `Slot0`/`index.html`/`#main-viewport`, migrate Spoke navigation to top-level in the Dashboard Window, make Home (from ControlPanel) drive the current Dashboard Chromium tab, and retire the remaining legacy tails. See `docs/ARCHITECTURE.md` for details.
+Keep the two concepts distinct: the **X11 Window** is the display surface Chromium creates on
+the host (position + pixel size); the **UI** is the HTML/CSS/JS loaded inside it. They have
+independent geometry. For the ControlPanel window/UI sizing detail and the full display
+lifecycle, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## One-Command Install
 
@@ -133,7 +124,7 @@ That is the only command a user needs. The installer:
 4. Inside the CT, install Node.js + git + curl, then Chromium in a separate
    step (`--no-install-recommends`), clone this repo from GitHub
    (anonymous, no credentials), and deploy the backend + metrics subscriber.
-5. Deploy the host `kiosk.service` and verify the full stack. A full, timestamped
+5. Deploy the host `enode-display.service` and verify the full stack. A full, timestamped
    log is written to `/var/log/eNode-install-<timestamp>.log`.
 
 > Advanced / developer method: if you already cloned the repo, you can run
@@ -149,8 +140,6 @@ subscription-less Proxmox hosts whose Enterprise repository is still enabled).
 > options, and boot/recovery behaviour. The supported path uses a single bare
 > host X server; a second Xorg layer is experimental and out of scope.
 
-Update later (inside the CT): `bash eNode-update`.
-
 > ⚠️ **Scope note:** `eNode-install` installs software **directly on the Proxmox host**
 > (Xorg, MQTT broker, systemd units). Intended for **home/lab** use on a dedicated
 > mini-server — not production Proxmox clusters. Test on a spare host first.
@@ -161,7 +150,7 @@ Update later (inside the CT): `bash eNode-update`.
 | :--- | :--- |
 | RAM (CT) | 1 GB |
 | vCPU | 1 |
-| Disk (rootfs) | 6 GB |
+| Disk (rootfs) | 12 GB |
 | Host | Proxmox VE; any x86 display (touch optional) |
 
 ## Affordability
