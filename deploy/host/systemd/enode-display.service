@@ -9,13 +9,13 @@ Type=simple
 User=root
 Environment=DISPLAY=:0
 # Wait for the CT to be running before launching Chromium inside it (boot race fix).
-ExecStartPre=/bin/sh -c 'for n in $(seq 1 90); do if pct status 300 2>/dev/null | grep -q running; then exit 0; fi; sleep 1; done; echo "CT 300 not running after 90s" >&2; exit 1'
-ExecStart=/usr/local/bin/enode-display-start.sh 300
+ExecStartPre=/bin/sh -c 'for n in $(seq 1 90); do if pct status __CT_ID__ 2>/dev/null | grep -q running; then exit 0; fi; sleep 1; done; echo "CT __CT_ID__ not running after 90s" >&2; exit 1'
+ExecStart=/usr/local/bin/enode-display-start.sh __CT_ID__
 # Lifecycle fix (restart-loop remediation): when the service stops we address the
 # Chromium instances running *inside* the CT (the host-side pct exec does not relay
 # SIGTERM into the inner shell, so without this they survive as orphans and hold the
 # singleton lock on their --user-data-dir, causing the next start to fail and loop).
-ExecStop=/usr/local/bin/enode-display-stop.sh 300
+ExecStop=/usr/local/bin/enode-display-stop.sh __CT_ID__
 # Give the stop helper time to TERM the Chromium process groups and wait for exit.
 TimeoutStopSec=20
 Restart=always

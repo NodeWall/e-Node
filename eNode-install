@@ -12,7 +12,7 @@
 #      starts the CT once the host X socket exists.
 #   4. Installs Node.js + git + chromium inside the CT, clones NodeWall/e-Node.
 #   5. Deploys CT-side services (backend, metrics subscriber) and the host
-#      kiosk + metrics-publisher systemd units.
+#      enode-display + metrics-publisher systemd units.
 #   6. Verifies the full stack and reports status.
 #
 # ⚠️  SECURITY / SCOPE NOTE
@@ -326,7 +326,7 @@ if [ "$DRY_RUN" = 1 ]; then
   log "    3. Create CT, bind /tmp/.X11-unix/X0, /dev/input, /dev/dri."
   log "    4. Inside CT: nodejs/npm/git/curl, then chromium (--no-install-recommends)."
   log "    5. Clone repo, npm install --omit=dev, deploy backend + metrics subscriber."
-  log "    6. Deploy host kiosk.service (Type=simple, waits for CT)."
+  log "    6. Deploy host enode-display.service (two-window Xorg runtime)."
   log "    7. Verify full stack."
   log "=== DRY-RUN: no changes were made ==="
   exit 0
@@ -432,7 +432,7 @@ if pct status "$CT_ID" >/dev/null 2>&1; then
   log "Reusing CT $CT_ID (skipping pct create)."
 else
   log "Step 2/6: Creating LXC container..."
-  run "pct create $CT_ID $TEMPLATE --hostname $CT_NAME --storage $ROOTFS_STORAGE --memory 1024 --cores 1 --rootfs $ROOTFS_STORAGE:6 --net0 name=eth0,bridge=vmbr0,ip=dhcp --features nesting=1 --onboot 1 --unprivileged 0"
+  run "pct create $CT_ID $TEMPLATE --hostname $CT_NAME --storage $ROOTFS_STORAGE --memory 1024 --cores 1 --rootfs $ROOTFS_STORAGE:12 --net0 name=eth0,bridge=vmbr0,ip=dhcp --features nesting=1 --onboot 1 --unprivileged 0"
 fi
 
 log "Step 2b: Binding host devices into CT (X11 socket, input, dri)..."
@@ -501,8 +501,8 @@ run "pct exec $CT_ID -- bash -c 'systemctl daemon-reload && systemctl enable --n
 # =====================================================================
 # DISPLAY PHASE — host service that drives the two-window Chromium runtime
 # inside the CT (Dashboard window + autonomous ControlPanel window on Xorg :0).
-# Legacy single-window kiosk.service/kiosk-start.sh remain in the repo as a
-# fallback but are no longer activated by a clean deployment.
+# The two-window display runtime (Dashboard + ControlPanel X11 windows) is driven
+# by enode-display.service on the host.
 # =====================================================================
 log "Step 6/6: Deploying host enode-display service (two-window Xorg runtime)..."
 SEDC="/tmp/eNode-display.service.$$"
@@ -510,6 +510,7 @@ sed "s/__CT_ID__/$CT_ID/g" "$HERE/deploy/host/systemd/enode-display.service" > "
 run "install -m 0644 '$SEDC' /etc/systemd/system/enode-display.service"
 rm -f "$SEDC"
 run "install -m 0755 '$HERE/deploy/scripts/enode-display-start.sh' /usr/local/bin/enode-display-start.sh"
+run "install -m 0755 '$HERE/deploy/scripts/enode-display-stop.sh' /usr/local/bin/enode-display-stop.sh"
 run "systemctl daemon-reload"
 run "systemctl enable --now enode-display.service"
 
@@ -566,5 +567,4 @@ fi
 
 log "=== Done ==="
 log "eNode CT '$CT_NAME' (VMID $CT_ID) installed. Access the eNode display on the host."
-log "Update later with: eNode-update (inside CT: cd /var/www/e-node && git pull && npm install)"
 log "Install log: $LOG"

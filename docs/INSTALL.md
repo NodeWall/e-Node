@@ -12,12 +12,12 @@ have to run `apt install` by hand first.
 | Proxmox VE host | any x86 box with a display (touch optional) |
 | RAM (CT) | 1 GB |
 | vCPU | 1 |
-| Disk (CT rootfs) | 6 GB |
+| Disk (CT rootfs) | 12 GB |
 | Network | DHCP on vmbr0 |
 
 The installer self-provides `git`, `curl`, and `ca-certificates` on the host, and
 `nodejs`, `npm`, `git`, `curl`, `chromium` inside the CT. A working `deb`
-A working `deb` package source and outbound internet (for the GitHub clone + Debian
+package source and outbound internet (for the GitHub clone + Debian
 template download) are required. **On a fresh Proxmox host without a subscription,
 enable the No-Subscription repository first** (see "Proxmox repository check"
 below) — the installer will refuse to start if the Enterprise repository is the
@@ -32,7 +32,7 @@ curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install |
 ```
 
 This is the single supported command for users. The installer **installs `git`
-itself** if it is missing, so you do **not** need to run `git`/`apt` by hand
+itself** if it is missing, so you **do not** need to run `git`/`apt` by hand
 first. It also runs the Proxmox repository preflight and stops with a clear
 message if a subscription-less host still has the Enterprise repo enabled
 without No-Subscription configured.
@@ -66,11 +66,11 @@ That is it. The script runs the supported deployment order described below.
    IP, and deploys `enode-backend.service` + `metrics-subscriber.service`.
 5. **Display** — deploys the host `enode-display.service`
    (`Type=simple`, `After=xorg-core.service pve-guests.service`, waits for the
-   CT) which launches **two** independent Chromium kiosk instances inside the CT
+   CT) which launches **two** independent Chromium X11 windows inside the CT
    onto the host `:0` (Dashboard window → `/`, ControlPanel window →
-   `/controlpanel.html`), each with its own `--user-data-dir`. The legacy
-   single-window `kiosk.service`/`kiosk-start.sh` remain in the repo as a
-   fallback but are not started by a clean deployment.
+   `/controlpanel.html`), each with its own `--user-data-dir`. The helper scripts
+   `enode-display-start.sh` and `enode-display-stop.sh` are installed on the host
+   to drive the windows.
 6. **Verify** — checks X0, CT running, backend `/api/health`, mosquitto on
    `:1883`, the subscriber unit, and `enode-display.service`; prints a clear failure and
    a non-zero exit if anything is missing.
@@ -79,9 +79,7 @@ That is it. The script runs the supported deployment order described below.
 
 - **APT is bounded.** Every `apt-get` runs with `Acquire::Retries=3` and
   connect/read timeouts (15s/60s). The Debian security suite and package
-  signatures are **never** disabled — if a mirror is slow, the install fails
-  fast instead of hanging for tens of minutes (this resolved the ~31-minute
-  retry loop seen on earlier deployments).
+  signatures are **never** disabled.
 - **Chromium is installed in its own step** with `--no-install-recommends`, so a
   Chromium problem is isolated and diagnosable and does not pull the whole
   printing/avahi/GTK desktop stack.
@@ -98,8 +96,7 @@ That is it. The script runs the supported deployment order described below.
 
 A fresh Proxmox VE install enables the **Enterprise** repository
 (`enterprise.proxmox.com`), which returns **HTTP 401** without a valid
-subscription. On such a host a plain `apt-get update` fails, and the old
-installer would die mid-deploy with a cryptic `401 Unauthorized`.
+subscription. On such a host a plain `apt-get update` fails.
 
 `eNode-install` runs a **read-only preflight** before touching anything and
 detects the repository state from the DEB822 `.sources` files in
@@ -129,20 +126,7 @@ curl -sSL .../eNode-install | bash
 curl -sSL .../eNode-install | bash -s -- --fix-repos
 ```
 
-## `--dry-run` (optional / diagnostic)
-
-`--dry-run` is **strictly read-only** and entirely optional — you do **not** need
-to run it before installing. It performs only detection (commands present,
-storage, local template, free VMID, host IP, DNS, and the repository preflight)
-and prints the plan with the **detected** values, then exits. It **never**
-downloads the Debian template, runs `apt-get`, creates the CT, starts Xorg,
-changes DNS, or touches systemd/`/etc/pve`:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/NodeWall/e-Node/main/eNode-install | bash -s -- --dry-run
-```
-
-Use it to confirm what the installer will do on your host before committing.
+## Options
 
 ```bash
 # custom CT name + VMID
@@ -155,16 +139,6 @@ bash eNode-install --dry-run
 bash eNode-install --storage local-zfs --template local:vztmpl/debian-13-standard_*.tar.zst
 ```
 
-## Updating
-
-Inside the CT:
-
-```bash
-bash eNode-update
-```
-
-Pulls the latest `main` and reinstalls Node deps. No reinstall needed.
-
 ## Boot / recovery behaviour
 
 - `enode-display.service` does **not** start until the CT is running (`ExecStartPre`
@@ -172,6 +146,22 @@ Pulls the latest `main` and reinstalls Node deps. No reinstall needed.
   so a cold host boot recovers the two-window display automatically once the CT boots.
 - `enode-backend.service`, `metrics-subscriber.service`, and `metrics-publisher.service`
   all use `Restart=always`. A CT reboot self-heals the UI and metrics.
+
+## Display surfaces
+
+The display runtime opens **two** Chromium X11 windows (do not confuse the window
+with the UI rendered inside it):
+
+| X11 Window | UI | Loaded from |
+| :--- | :--- | :--- |
+| Dashboard X11 Window | Dashboard UI (widget grid) | `http://localhost:3000/` |
+| ControlPanel X11 Window | ControlPanel UI (control bar) | `http://localhost:3000/controlpanel.html` |
+
+The ControlPanel X11 Window is requested at 60 px height; the current Chromium/X11
+implementation creates the window at 87 px, while the ControlPanel UI itself is
+60 px tall and sits at the top of the window viewport. Placed at Y = 1020 on a
+1920×1080 display, the 60 px UI stays visible and the extra window height is
+clipped by the physical display edge.
 
 ## Logging
 
@@ -195,9 +185,9 @@ display stack, this is the known-good baseline.
 
 - **Physical UI sizing on some displays.** Chromium is launched with the true
   screen geometry read from the host X server (e.g. 1920×1080) and renders
-  fullscreen (`~1919×1079+0+0`), but on certain panels the e-Node UI may not
-  fill the physical display as expected. This is a separate display-mode
-  investigation and is **not** worked around by the installer.
+  fullscreen, but on certain panels the e-Node UI may not fill the physical
+  display as expected. This is a separate display-mode investigation and is
+  **not** worked around by the installer.
 - **Second Xorg layer.** A second/compositing Xorg layer is **experimental and
   out of scope** of the supported deployment. The supported path uses the single
   bare host X server described above.

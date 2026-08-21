@@ -66,7 +66,7 @@ exec pct exec "$CT_ID" -- bash -c '
 
   # Persist tracked PIDs so the stop helper can address exactly these Chromium
   # instances (and their process groups) instead of a broad pkill.
-  echo "$$ $P_DASH $P_CP" > /run/enode-display.300.pids
+  echo "$$ $P_DASH $P_CP" > /run/enode-display.${CT_ID}.pids
 
   cleanup() {
     echo "[enode-display] Stopping Chromium (dash=$P_DASH cp=$P_CP)..."
@@ -87,7 +87,7 @@ exec pct exec "$CT_ID" -- bash -c '
     # Drop leftover singleton lock so a later start is conflict-free.
     rm -f /root/.config/chromium/SingletonLock /root/.config/chromium/SingletonSocket /root/.config/chromium/SingletonCookie
     rm -f /root/.config/chromium-controlpanel/SingletonLock /root/.config/chromium-controlpanel/SingletonSocket /root/.config/chromium-controlpanel/SingletonCookie
-    rm -f /run/enode-display.300.pids
+    rm -f /run/enode-display.${CT_ID}.pids
   }
   trap cleanup EXIT TERM INT
 

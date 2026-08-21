@@ -11,9 +11,9 @@ work, it places services directly on the Proxmox node:
 | Change | Location |
 | :--- | :--- |
 | Xorg bare server | `/etc/X11/xorg.conf`, `/etc/X11/xorg.conf.d/` |
-| systemd units | `/etc/systemd/system/xorg-core.service`, `kiosk.service`, `metrics-publisher.service` |
+| systemd units | `/etc/systemd/system/xorg-core.service`, `enode-display.service`, `metrics-publisher.service` |
 | MQTT broker | `/etc/mosquitto/conf.d/enode.conf` + `mosquitto.service` |
-| Helper scripts | `/usr/local/bin/kiosk-start.sh`, `metrics-publisher.sh`, `metrics-subscriber.sh` |
+| Helper scripts | `/usr/local/bin/enode-display-start.sh`, `enode-display-stop.sh`, `metrics-publisher.sh`, `metrics-subscriber.sh` |
 
 It also creates an LXC container and installs `xserver-xorg-core`,
 `x11-xserver-utils`, `libinput-bin`, `mosquitto` via `apt`.
@@ -24,7 +24,7 @@ It also creates an LXC container and installs `xserver-xorg-core`,
   mosquitto is unusual. On a production cluster this can interfere with
   updates or other workloads.
 - **Display takeover.** The host's physical console is replaced by the eNode
-  kiosk at boot (recoverable via `Ctrl+Shift+F1`/`F2`).
+  display runtime at boot (recoverable via `Ctrl+Shift+F1`/`F2`).
 - **No sandbox for host services.** Host units run on the node, not in a VM.
 - **DNS is changed only if missing.** `eNode-install` rewrites the host
   `/etc/resolv.conf` to a fallback nameserver **only when it has no valid
