@@ -8,7 +8,6 @@
   --col-1-width: 38%;
   --col-2-width: 34%;
   --col-3-width: 28%;
-  --slot0-height: 60px;
 }
 
 * { box-sizing: border-box; }
@@ -32,7 +31,7 @@ body {
   top: 0;
   left: 0;
   width: 100vw;
-  height: calc(100vh - var(--slot0-height));
+  height: 100vh;
   z-index: 1;
 }
 
@@ -41,161 +40,6 @@ body {
   height: 100%;
   border: none;
   display: block;
-}
-
-/* === SLOT0 PANEL (Slot 0) — 5-column grid === */
-#slot0 {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100vw;
-  height: var(--slot0-height);
-  background-color: #080808;
-  border-top: 1px solid #1a1a1a;
-  z-index: 1000;
-  font-family: sans-serif;
-  display: grid;
-  grid-template-columns: 1fr 2fr 1fr 2fr 1fr;
-  grid-template-rows: 100%;
-  align-items: center;
-  padding: 0 8px;
-}
-
-/* Col 1: Logo */
-.slot0-col-logo {
-  display: flex; padding-left: 12px;
-  align-items: center;
-  justify-content: flex-start;
-}
-
-/* Col 2: Brightness slider (centers at 25% of viewport) */
-.slot0-col-brightness {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Col 3: Home button (dead center at 50%) */
-.slot0-col-home {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Col 4: Volume slider (centers at 75% of viewport) */
-.slot0-col-volume {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Col 5: Settings gear */
-.slot0-col-settings {
-  display: flex; padding-right: 12px;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-/* Logo button */
-.slot0-logo-btn {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  text-decoration: none;
-  transition: transform 0.15s ease, opacity 0.15s ease;
-  padding: 6px;
-  border-radius: 8px;
-}
-
-.slot0-logo-btn:hover {
-  background: rgba(255,255,255,0.05);
-}
-
-.slot0-logo-btn:active {
-  transform: scale(0.92);
-  opacity: 0.8;
-}
-
-/* Slot0 buttons */
-.slot0-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.06);
-  color: #e0e0e0;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.12s ease;
-}
-
-.slot0-btn:hover {
-  background: rgba(255,255,255,0.12);
-}
-
-.slot0-btn:active {
-  transform: scale(0.9);
-  background: rgba(255,255,255,0.15);
-}
-
-.slot0-btn-home {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: rgba(0,163,255,0.15);
-  color: #00a3ff;
-}
-
-.slot0-btn-home:hover {
-  background: rgba(0,163,255,0.25);
-}
-
-/* Slot0 sliders — 80% of column width, touch-friendly */
-.slot0-control {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 80%;
-}
-
-.slot0-icon {
-  color: #888;
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-}
-
-.slot0-slider {
-  flex: 1;
-  min-width: 0;
-  height: 6px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: #333;
-  border-radius: 3px;
-  outline: none;
-  cursor: pointer;
-}
-
-.slot0-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #00a3ff;
-  cursor: pointer;
-}
-
-.slot0-slider::-moz-range-thumb {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #00a3ff;
-  cursor: pointer;
-  border: none;
 }
 
 /* === REMOVED SLEEP OVERLAY === */

@@ -17,6 +17,7 @@ CT_ID="${1:-300}"
 
 exec pct exec "$CT_ID" -- bash -c '
   set -u
+  CT_ID="$1"
   BACKEND="http://127.0.0.1:3000"
   CONTROL_PANEL_WINDOW_HEIGHT=60
   export DISPLAY=:0
@@ -93,4 +94,4 @@ exec pct exec "$CT_ID" -- bash -c '
 
   echo "[enode-display] Two Chromium launched (dash=$P_DASH cp=$P_CP). Holding via wait."
   wait
-'
+' _ "$CT_ID"

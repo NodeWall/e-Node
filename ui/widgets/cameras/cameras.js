@@ -20,13 +20,11 @@ export const camerasWidget = {
   bindEvents() {
     this.el.querySelectorAll(".camera-cell").forEach(cell => {
       cell.addEventListener("click", () => {
-        const slot0Panel = document.getElementById("slot0");
-        const slot0Height = slot0Panel ? slot0Panel.offsetHeight : 0;
         cell.style.position = "fixed";
         cell.style.top = "0";
         cell.style.left = "0";
         cell.style.width = "100vw";
-        cell.style.height = "calc(100vh - " + slot0Height + "px)";
+        cell.style.height = "100vh";
         cell.style.zIndex = "999";
         cell.style.borderRadius = "0";
         const iframe = cell.querySelector("iframe");
