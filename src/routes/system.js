@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PROXMOX_NODE_URL, HERMES_WEBUI_URL } from '../config.js';
+import { home as browserBridgeHome } from '../browserbridge.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -9,10 +10,6 @@ const NETWORK_STATUS_FILE = path.join(DATA_DIR, 'network-status.json');
 const HOST_METRICS_FILE = path.join(DATA_DIR, 'host-metrics.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-
-// ControlPanel -> Dashboard Window IPC (lightweight command channel).
-// ControlPanel POSTs a command; the Dashboard bridge polls state and acts.
-let lastCpCommand = { cmd: null, ts: 0 };
 
 function readHostMetrics() {
   try {
@@ -134,13 +131,20 @@ export default async function systemRoutes(fastify, opts) {
     }
   });
 
-  // ControlPanel -> Dashboard Window command channel (Home / Logo etc.)
-  fastify.post('/api/cp/command', async (req) => {
+  // ControlPanel -> Dashboard Window Home action (immediate, not stored).
+  // Bridges the semantic "home" command to the existing Dashboard Chromium
+  // tab via CDP Page.navigate. No command state / polling.
+  fastify.post('/api/cp/command', async (req, reply) => {
     const { cmd } = req.body || {};
     if (!cmd) return reply.code(400).send({ error: 'missing cmd' });
-    lastCpCommand = { cmd, ts: Date.now() };
-    return { ok: true, cmd, ts: lastCpCommand.ts };
+    if (cmd !== 'home') {
+      return reply.code(400).send({ error: `unsupported cmd: ${cmd}` });
+    }
+    try {
+      const result = await browserBridgeHome();
+      return { ok: true, ...result };
+    } catch (err) {
+      return reply.code(503).send({ ok: false, error: err.message });
+    }
   });
-
-  fastify.get('/api/cp/state', async () => lastCpCommand);
 }

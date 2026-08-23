@@ -6,7 +6,9 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/var/www/e-node
-ExecStart=/usr/bin/node /var/www/e-node/server.js
+# --experimental-websocket enables the built-in WebSocket global used by the
+# in-process BrowserBridge (CDP Page.navigate for the ControlPanel Home action).
+ExecStart=/usr/bin/node --experimental-websocket /var/www/e-node/server.js
 Restart=always
 RestartSec=5
 StandardOutput=journal

@@ -55,6 +55,7 @@ exec pct exec "$CT_ID" -- bash -c '
   chromium --kiosk --window-position=0,0 --window-size=${DISPLAY_X},${DASHBOARD_WINDOW_HEIGHT} \
     --no-first-run --no-sandbox --touch-events=enabled --ignore-certificate-errors \
     --user-data-dir=/root/.config/chromium --disable-dev-shm-usage \
+    --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 \
     "$BACKEND/dashboard.html" &
   P_DASH=$!
 
