@@ -59,8 +59,23 @@ its own `--user-data-dir`:
 
 | X11 Window | Content (UI) | Launched at |
 | :--- | :--- | :--- |
-| **Dashboard X11 Window** | **Dashboard UI** — `ui/dashboard.html` (the widget grid: clock, maps, network, Proxmox, cameras, Home Assistant) | `http://localhost:3000/` |
-| **ControlPanel X11 Window** | **ControlPanel UI** — `ui/controlpanel.html` (the control bar: logo, brightness, home, volume, settings) | `http://localhost:3000/controlpanel.html` |
+| **Dashboard X11 Window** | **Dashboard UI** — `ui/dashboard.html` (the widget grid: clock, maps, network, Proxmox, cameras, Home Assistant) | `http://localhost:3000/dashboard.html` |
+| **ControlPanel X11 Window** | **ControlPanel UI** — `ui/controlpanel.html` (the control bar; **Home** is implemented, other controls are UI placeholders) | `http://localhost:3000/controlpanel.html` |
+
+### Dashboard Content: Hub and Spoke
+
+The Dashboard Chromium renders **one existing tab**. The top-level content of that
+tab — the **Dashboard Content** — is either a **Hub** or a **Spoke**:
+
+- **Hub** = `dashboard.html` — the starting / home state of the Dashboard Content.
+- **Spoke** = any other top-level content of the *same* Dashboard tab (verified
+  examples: Proxmox WebUI, Maps, Video). It is reached by top-level navigation of
+  the existing tab, **not** by opening a new window, new tab, or new Chromium.
+
+> **Dashboard Content is not an iframe shell.** The Hub/Spoke model is a
+> top-level navigation of the single Dashboard tab. An `<iframe>` used *inside* a
+> specific content/widget (e.g. the Waze embed inside `maps.html`) is normal
+> widget-level content and is **not** part of the Dashboard shell architecture.
 
 Both windows stream onto the host `:0` from inside the CT. The Dashboard UI is
 the primary surface; the ControlPanel UI is a slim, always-available control bar
@@ -123,6 +138,45 @@ The display runtime uses two helper scripts deployed on the host:
 `enode-display-start.sh` (launches the Chromium windows inside the CT) and
 `enode-display-stop.sh` (stops exactly the e-Node Chromium processes on service
 stop, so no orphan survives).
+
+## ControlPanel Home (return to Hub)
+
+The ControlPanel **Home** action returns the existing Dashboard tab to the Hub
+(`dashboard.html`). The accepted flow:
+
+```
+ControlPanel
+    ↓
+POST /api/cp/command { "cmd": "home" }
+    ↓
+Fastify backend — src/routes/system.js
+    ↓
+browserBridge.home()  (in-process Node module)
+    ↓
+CDP Page.navigate
+    ↓
+existing Dashboard Chromium / existing Dashboard tab
+    ↓
+dashboard.html  (Hub)
+```
+
+Key facts:
+
+- **BrowserBridge** is a small **in-process Node module** (`src/browserbridge.js`).
+  It is **not** a daemon, **not** a systemd service, **not** a separate process,
+  and **not** a persistent poller. Its current responsibility is exactly one thing:
+  navigate the existing Dashboard tab to the Hub.
+- CDP (`Page.navigate`) is used as a **narrow navigation primitive** for Home, not
+  as a generic browser-automation architecture.
+- The backend runs with Node's built-in WebSocket support:
+  `--experimental-websocket`.
+- Only the **Dashboard Chromium** is launched with a local-only CDP endpoint:
+  `--remote-debugging-address=127.0.0.1 --remote-debugging-port=9222`.
+  The CDP endpoint is bound to `127.0.0.1` only (not exposed externally).
+- The **ControlPanel Chromium has no CDP debugging endpoint.**
+- Home does **not** create a new X11 window, new Chromium, new tab, or restart the
+  Dashboard Chromium, and does not depend on the e-Node DOM in the current
+  Dashboard Content (so it works from Proxmox / Maps / Video Spokes alike).
 
 ## Display lifecycle
 

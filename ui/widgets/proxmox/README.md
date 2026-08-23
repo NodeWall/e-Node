@@ -10,7 +10,9 @@
 - Fetches `/api/system/proxmox-status` every 10 sec
 - Progress bars for CPU/RAM/SSD
 - Node name fetched dynamically via SSH to the Proxmox host (configure host in src/config.js)
-- Click opens WebUI in new window using `proxmoxUrl` — the configured `PROXMOX_NODE_URL` (single source of truth for the Proxmox host address), returned by `/api/system/proxmox-status`.
+- Click navigates the **existing Dashboard tab** to the Proxmox WebUI as a **Spoke**
+  (top-level navigation via `window.location.href = proxmoxUrl`). **Home** (ControlPanel)
+  returns the Dashboard Content to the Hub. No new window, tab, or Chromium is created.
 
 ## Variables
 - `#proxmox-cpu`, `#proxmox-ram`, `#proxmox-disk`

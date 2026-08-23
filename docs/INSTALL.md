@@ -154,7 +154,7 @@ with the UI rendered inside it):
 
 | X11 Window | UI | Loaded from |
 | :--- | :--- | :--- |
-| Dashboard X11 Window | Dashboard UI (widget grid) | `http://localhost:3000/` |
+| Dashboard X11 Window | Dashboard UI (widget grid) | `http://localhost:3000/dashboard.html` |
 | ControlPanel X11 Window | ControlPanel UI (control bar) | `http://localhost:3000/controlpanel.html` |
 
 The ControlPanel X11 Window is requested at 60 px height; the current Chromium/X11

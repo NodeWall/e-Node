@@ -13,6 +13,17 @@ single bare X server (`:0`), and the host-side `enode-display.service` launches
 each with its own `--user-data-dir`. See `docs/ARCHITECTURE.md` for the full
 picture.
 
+### ControlPanel Home — local-only CDP endpoint
+
+The **Dashboard Chromium** is launched with a **local-only** CDP endpoint
+(`--remote-debugging-address=127.0.0.1 --remote-debugging-port=9222`, bound to
+`127.0.0.1` only). This endpoint is used by the in-process **BrowserBridge**
+(`src/browserbridge.js`) to navigate the existing Dashboard tab back to the Hub
+when the ControlPanel **Home** action is triggered. The backend runs with Node's
+built-in WebSocket support (`--experimental-websocket`) for this narrow Home path.
+The **ControlPanel Chromium has no CDP debugging endpoint.** Do not remove these
+flags — without them the ControlPanel Home action cannot reach the Dashboard tab.
+
 ## Contents
 
 | File | Purpose |

@@ -86,10 +86,13 @@ eNode runs in two tiers:
 The display is rendered as **two independent Chromium X11 windows** on the host's single bare
 X server (`:0`), with **no window manager**:
 
-- **Dashboard X11 Window** — shows the **Dashboard UI** (widget grid: clock, maps, network,
-  Proxmox, cameras, Home Assistant).
-- **ControlPanel X11 Window** — shows the **ControlPanel UI** (control bar: logo, brightness,
-  home, volume, settings).
+- **Dashboard X11 Window** — shows the **Dashboard UI**: a Hub (`dashboard.html`)
+  with a widget grid (clock, maps, network, Proxmox, cameras, Home Assistant). The
+  Dashboard is a single top-level tab whose content is either the Hub or a Spoke
+  (e.g. Proxmox / Maps / Video), reached by top-level navigation — not an iframe shell.
+- **ControlPanel X11 Window** — shows the **ControlPanel UI** (a slim control bar).
+  **Home** is implemented (returns the Dashboard to the Hub); the remaining controls
+  are UI placeholders not yet functionally integrated.
 
 Keep the two concepts distinct: the **X11 Window** is the display surface Chromium creates on
 the host (position + pixel size); the **UI** is the HTML/CSS/JS loaded inside it. They have
