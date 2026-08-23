@@ -5,8 +5,8 @@
 
 const CP_API = "http://127.0.0.1:3000";
 
-// Send a command to the backend. The backend stores it; the Dashboard
-// bridge (cp-bridge.js, loaded inside the Dashboard Window) polls and acts.
+// Send a command to the backend. The backend stores it and the Dashboard
+// Window (separate Chromium) polls/acts on it via the e-Node backend IPC.
 async function sendCommand(cmd) {
   try {
     await fetch(CP_API + "/api/cp/command", {

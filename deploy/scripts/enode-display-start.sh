@@ -1,6 +1,5 @@
 #!/bin/bash
 # eNode Display Runtime (NEW) — two independent Chromium kiosk windows on Xorg :0.
-# Legacy kiosk-start.sh is intentionally untouched and remains the fallback.
 #
 # Lifecycle fix (restart-loop remediation):
 #   * On start we free any stale Chromium profile lock left behind by a previous
