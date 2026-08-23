@@ -56,7 +56,7 @@ exec pct exec "$CT_ID" -- bash -c '
   chromium --kiosk --window-position=0,0 --window-size=${DISPLAY_X},${DASHBOARD_WINDOW_HEIGHT} \
     --no-first-run --no-sandbox --touch-events=enabled --ignore-certificate-errors \
     --user-data-dir=/root/.config/chromium --disable-dev-shm-usage \
-    "$BACKEND" &
+    "$BACKEND/dashboard.html" &
   P_DASH=$!
 
   chromium --kiosk --window-position=0,${DASHBOARD_WINDOW_HEIGHT} --window-size=${DISPLAY_X},${CONTROL_PANEL_WINDOW_HEIGHT} \
