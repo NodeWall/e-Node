@@ -1,5 +1,5 @@
 // e-Node ControlPanel — autonomous X11-window UI.
-// Mirrors Legacy Slot0 functionality. Does NOT depend on Dashboard DOM.
+// Standalone ControlPanel UI in its own X11 window.
 // Home/Logo talk to the e-Node backend via HTTP IPC; the backend (or a
 // Dashboard bridge) drives the existing Dashboard Window.
 
@@ -30,12 +30,12 @@ document.addEventListener("DOMContentLoaded", () => {
   if (logoBtn) {
     logoBtn.addEventListener("click", (e) => {
       e.preventDefault();
-      // Agent WebUI: open in a new tab (matches Legacy Slot0 behaviour).
+    // Agent WebUI: open in a new tab.
       window.open("/", "_blank");
     });
   }
 
-  // Brightness / Volume / Settings: UI present (mirrors Legacy Slot0),
+  // Brightness / Volume / Settings: UI present (not yet wired to backend),
   // no backend logic wired yet — preserve original behaviour.
   const brightness = document.getElementById("cp-brightness-slider");
   const volume = document.getElementById("cp-volume-slider");

@@ -17,7 +17,7 @@ body {
   background: #080808;
 }
 
-/* === ControlPanel (autonomous, mirrors Legacy Slot0 look) === */
+/* === ControlPanel (autonomous 5-column layout) === */
 #controlpanel {
   position: fixed;
   top: 0;
