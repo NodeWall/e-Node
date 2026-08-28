@@ -10,19 +10,14 @@
 <body>
   <div id="app">
     <!-- ROW 1 (1fr) -->
-    <section class="tile" data-slot="A"><div id="clock-widget" class="slot"></div></section>
-    <section class="tile" data-slot="B"><div id="maps-widget" class="slot" onclick="window.location.href='/widgets/maps/maps.html'"></div></section>
-    <section class="tile" data-slot="C"><div id="network-widget" class="slot"></div></section>
+    <section class="tile" data-slot="R1C1"><div id="clock-widget" class="slot"></div></section>
+    <section class="tile" data-slot="R1C2"><div id="maps-widget" class="slot" onclick="window.location.href='/widgets/maps/maps.html'"></div></section>
+    <section class="tile" data-slot="R1C3"><div id="network-widget" class="slot"></div></section>
 
     <!-- ROW 2 (1fr) -->
-    <section class="tile" data-slot="D"><div id="proxmox-widget" class="slot"></div></section>
-    <section class="tile" data-slot="E"><div id="cameras-widget" class="slot"></div></section>
-    <section class="tile" data-slot="F"><div id="homeassistant-widget" class="slot"></div></section>
-
-    <!-- ROW 3 (0.5fr) - Reserved slots (empty frames for geometry test) -->
-    <section class="tile" data-slot="G"><div class="slot empty-slot"><span style="opacity:0.3;font-size:1rem;">Slot G</span></div></section>
-    <section class="tile" data-slot="H"><div class="slot empty-slot"><span style="opacity:0.3;font-size:1rem;">Slot H</span></div></section>
-    <section class="tile" data-slot="I"><div class="slot empty-slot"><span style="opacity:0.3;font-size:1rem;">Slot I</span></div></section>
+    <section class="tile" data-slot="R2C1"><div id="proxmox-widget" class="slot"></div></section>
+    <section class="tile" data-slot="R2C2"><div id="cameras-widget" class="slot"></div></section>
+    <section class="tile" data-slot="R2C3"><div id="homeassistant-widget" class="slot"></div></section>
   </div>
 
   <script type="module">
