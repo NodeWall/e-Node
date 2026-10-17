@@ -18,7 +18,7 @@
           <div id="network-widget" class="slot"></div>
           <div class="launcher-block slot">
             <div class="launcher-tile" onclick="sendSpoke('http://10.10.10.100:8123/')">Home Assistant</div>
-            <div class="launcher-tile" onclick="sendSpoke('http://10.10.10.205:8787/')">Hermes WebUI</div>
+            <div class="launcher-tile" onclick="sendHermesSpoke()">Hermes WebUI</div>
             <div class="launcher-tile" onclick="sendSpoke('http://10.10.10.121:8090/')">TorrServ</div>
             <div class="launcher-tile" onclick="sendSpoke('http://10.10.10.123:9117/')">Jackett</div>
           </div>
@@ -51,6 +51,17 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cmd: 'spoke', url }),
       }).catch(() => {});
+    };
+
+    window.sendHermesSpoke = async function() {
+      try {
+        const res = await fetch('/api/system/proxmox-status');
+        const data = await res.json();
+        const ip = data.ip || '127.0.0.1';
+        sendSpoke(`https://${ip}:8787/`);
+      } catch (e) {
+        console.error('Failed to resolve Hermes IP:', e);
+      }
     };
   </script>
   <script type="module">
