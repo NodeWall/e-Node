@@ -458,6 +458,7 @@ fi
 # --- Inside CT: base packages (nodejs/npm/git/curl) first ---
 phase "Step 4a/6: Installing base packages inside CT (git curl nodejs npm)"
 run "pct exec $CT_ID -- bash -c 'apt-get update $APT_OPTS && apt-get install -y $APT_OPTS git curl nodejs npm'"
+run "pct exec $CT_ID -- bash -c "ln -sf /usr/share/zoneinfo/Europe/Kyiv /etc/localtime && echo Europe/Kyiv > /etc/timezone""
 
 # --- Inside CT: chromium ISOLATED (its own command, --no-install-recommends) ---
 phase "Step 4b/6: Installing chromium inside CT (isolated, --no-install-recommends)"

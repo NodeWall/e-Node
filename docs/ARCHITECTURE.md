@@ -18,7 +18,7 @@ streaming from an LXC container to the host's bare X server.
 │            │ shares X socket + /dev/input                  │
 │            ▼                                               │
 │  ┌────────────────────────────────────────────┐         │
-│  │ LXC container "eNode-<node>"                │         │
+│  │ LXC container "eNode-<node>" (configured to Europe/Kyiv timezone)                │         │
 │  │                                             │         │
 │  │  Two Chromium X11 windows  ──paint──▶ host X│         │
 │  │        │                                    │         │
