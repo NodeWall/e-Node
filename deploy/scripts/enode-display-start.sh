@@ -1,5 +1,6 @@
 #!/bin/bash
 # eNode Display Runtime (NEW) — two independent Chromium kiosk windows on Xorg :0.
+# Legacy kiosk-start.sh is intentionally untouched and remains the fallback.
 #
 # Lifecycle fix (restart-loop remediation):
 #   * On start we free any stale Chromium profile lock left behind by a previous
@@ -37,6 +38,22 @@ exec pct exec "$CT_ID" -- bash -c '
     if [ "$N" -ge 30 ]; then echo "[enode-display] ERROR: backend timeout"; exit 1; fi
   done
   echo "[enode-display] Backend UP."
+
+  # Readiness: wait for the go2rtc WebRTC relay (camera widget) before loading
+  # the Dashboard, so the Tapo preview iframe can attach on first connect.
+  # Graceful degradation: if go2rtc is absent/disabled, warn and proceed —
+  # the Dashboard still starts, just without the local camera preview.
+  # 127.0.0.1:1984 resolves to the CT (this runs inside `pct exec`, CT netns).
+  GO2RTC_STREAMS="http://127.0.0.1:1984/api/streams"
+  N=0
+  until curl -s -o /dev/null "$GO2RTC_STREAMS" 2>/dev/null; do
+    sleep 1; N=$((N+1))
+    if [ "$N" -ge 15 ]; then
+      echo "[enode-display] WARNING: go2rtc not ready after 15s — proceeding (Tapo preview will be absent)"
+      break
+    fi
+  done
+  if [ "$N" -gt 0 ] && [ "$N" -lt 15 ]; then echo "[enode-display] go2rtc ready in ${N}s."; fi
 
   DIM=$(xdpyinfo 2>/dev/null | awk "/dimensions:/ {print \$2}")
   [ -z "$DIM" ] && DIM="1920x1080"

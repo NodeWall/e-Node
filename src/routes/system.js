@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PROXMOX_NODE_URL, HERMES_WEBUI_URL } from '../config.js';
-import { home as browserBridgeHome } from '../browserbridge.js';
+import { home as browserBridgeHome, openSpoke as browserBridgeOpenSpoke } from '../browserbridge.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -51,6 +51,22 @@ async function backgroundSpeedTest() {
 
 setInterval(backgroundSpeedTest, 30 * 60 * 1000);
 setTimeout(backgroundSpeedTest, 10000);
+
+const ALLOWED_SPOKE_SCHEMES = new Set(['http:', 'https:']);
+
+function validateSpokeUrl(raw) {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('/')) return trimmed;
+  try {
+    const url = new URL(trimmed);
+    if (!ALLOWED_SPOKE_SCHEMES.has(url.protocol)) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
 
 export default async function systemRoutes(fastify, opts) {
   fastify.get('/api/system/brightness', async () => ({ brightness: 100 }));
@@ -105,7 +121,7 @@ export default async function systemRoutes(fastify, opts) {
       } catch (err) {
         reply.code(502).send({ error: 'Hermes proxy error', message: err.message });
       }
-    }
+    },
   });
 
   fastify.route({
@@ -128,23 +144,37 @@ export default async function systemRoutes(fastify, opts) {
       } catch (err) {
         reply.code(502).send({ error: 'Proxmox proxy error', message: err.message });
       }
-    }
+    },
   });
 
   // ControlPanel -> Dashboard Window Home action (immediate, not stored).
-  // Bridges the semantic "home" command to the existing Dashboard Chromium
-  // tab via CDP Page.navigate. No command state / polling.
+  // Persistent Hub / Ephemeral Spoke:
+  // Home closes any tracked Spoke and activates the persistent Hub.
   fastify.post('/api/cp/command', async (req, reply) => {
     const { cmd } = req.body || {};
     if (!cmd) return reply.code(400).send({ error: 'missing cmd' });
-    if (cmd !== 'home') {
-      return reply.code(400).send({ error: `unsupported cmd: ${cmd}` });
+
+    if (cmd === 'home') {
+      try {
+        const result = await browserBridgeHome();
+        return { ok: true, ...result };
+      } catch (err) {
+        return reply.code(503).send({ ok: false, error: err.message });
+      }
     }
-    try {
-      const result = await browserBridgeHome();
-      return { ok: true, ...result };
-    } catch (err) {
-      return reply.code(503).send({ ok: false, error: err.message });
+
+    if (cmd === 'spoke') {
+      const { url } = req.body || {};
+      const safeUrl = validateSpokeUrl(url);
+      if (!safeUrl) return reply.code(400).send({ error: 'invalid spoke url' });
+      try {
+        const result = await browserBridgeOpenSpoke(safeUrl);
+        return { ok: true, ...result };
+      } catch (err) {
+        return reply.code(503).send({ ok: false, error: err.message });
+      }
     }
+
+    return reply.code(400).send({ error: `unsupported cmd: ${cmd}` });
   });
 }

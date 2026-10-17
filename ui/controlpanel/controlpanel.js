@@ -1,18 +1,16 @@
 // e-Node ControlPanel — autonomous X11-window UI.
 // Standalone ControlPanel UI in its own X11 window.
-// Home/Logo talk to the e-Node backend via HTTP IPC; the backend (or a
-// Dashboard bridge) drives the existing Dashboard Window.
+// Home/Logo talk to the e-Node backend via HTTP IPC; the backend
+// drives the existing Dashboard Window.
 
 const CP_API = "http://127.0.0.1:3000";
 
-// Send a command to the backend. The backend stores it and the Dashboard
-// Window (separate Chromium) polls/acts on it via the e-Node backend IPC.
-async function sendCommand(cmd) {
+async function sendCommand(cmd, extra = {}) {
   try {
     await fetch(CP_API + "/api/cp/command", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cmd }),
+      body: JSON.stringify({ cmd, ...extra }),
     });
   } catch (e) {
     console.warn("ControlPanel: command failed", cmd, e);
@@ -30,13 +28,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (logoBtn) {
     logoBtn.addEventListener("click", (e) => {
       e.preventDefault();
-    // Agent WebUI: open in a new tab.
       window.open("/", "_blank");
     });
   }
 
-  // Brightness / Volume / Settings: UI present (not yet wired to backend),
-  // no backend logic wired yet — preserve original behaviour.
   const brightness = document.getElementById("cp-brightness-slider");
   const volume = document.getElementById("cp-volume-slider");
   const settings = document.getElementById("cp-settings");

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Camera</title>
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; width: 100%; background: #000; overflow: hidden; }
+    #wrap { position: fixed; inset: 0; }
+    iframe { width: 100%; height: 100%; border: 0; display: block; }
+  </style>
+</head>
+<body>
+  <div id="wrap"><iframe id="frame" src="about:blank"></iframe></div>
+  <script>
+    // Unified Camera Spoke: resolves the right source by type query param.
+    // Tapo/glacier reuse the same Dashboard origin; YouTube opens its embed.
+    var p = new URLSearchParams(location.search);
+    var type = p.get("type");
+    var src = p.get("src");
+    var host = location.hostname;
+    var url = "about:blank";
+    if (type === "go2rtc") {
+      url = "http://" + host + ":1984/stream.html?src=" + src + "&mode=webrtc";
+    } else if (type === "youtube") {
+      url = "https://www.youtube.com/embed/" + src + "?autoplay=1&mute=1&controls=0&loop=1&playlist=" + src;
+    } else if (type === "glacier") {
+      url = "https://portofcams.com/embed/" + src + "/";
+    }
+    document.getElementById("frame").src = url;
+  </script>
+</body>
+</html>

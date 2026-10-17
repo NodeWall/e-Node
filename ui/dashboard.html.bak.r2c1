@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>eNode Dashboard</title>
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="stylesheet" href="/css/themes.css" />
+</head>
+<body>
+  <div id="screen">
+    <div id="app">
+      <!-- ROW 1 (1fr) -->
+      <section class="tile" data-slot="R1C1"><div id="clock-widget" class="slot"></div></section>
+      <section class="tile" data-slot="R1C2"><div id="maps-widget" class="slot" onclick="window.location.href='/widgets/maps/maps.html'"></div></section>
+      <section class="tile" data-slot="R1C3">
+        <div class="mc-split-row">
+          <div id="network-widget" class="slot"></div>
+          <div class="launcher-block slot">
+            <div class="launcher-tile" onclick="window.location.href='http://10.10.10.100:8123/'">Home Assistant</div>
+            <div class="launcher-tile" onclick="window.location.href='http://10.10.10.205:8787/'">Hermes WebUI</div>
+            <div class="launcher-tile" onclick="window.location.href='http://10.10.10.121:8090/'">TorrServ</div>
+            <div class="launcher-tile" onclick="window.location.href='http://10.10.10.123:9117/'">Jackett</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ROW 2 (1fr) -->
+      <section class="tile" data-slot="R2C1">
+        <div class="mc-split-col">
+          <div class="slot placeholder">Weather Forecast</div>
+          <div class="slot placeholder">Calendar</div>
+        </div>
+      </section>
+      <section class="tile" data-slot="R2C2"><div id="cameras-widget" class="slot"></div></section>
+      <section class="tile" data-slot="R2C3">
+        <div class="mc-split-col">
+          <div id="proxmox-widget" class="slot"></div>
+          <div class="slot pbs-placeholder">Proxmox Backup Server<br>Not configured</div>
+        </div>
+      </section>
+    </div>
+
+    <div id="control-strip">Control Strip</div>
+  </div>
+
+  <script type="module">
+    import { clockWidget } from '/widgets/clock/clock.js';
+    import { networkWidget } from '/widgets/network/network.js';
+    import { mapsWidget } from '/widgets/maps/maps.js';
+    import { proxmoxWidget } from '/widgets/proxmox/proxmox.js';
+    import { camerasWidget } from '/widgets/cameras/cameras.js';
+
+    clockWidget.init();
+    networkWidget.init();
+    mapsWidget.init();
+    proxmoxWidget.init();
+    camerasWidget.init();
+  </script>
+</body>
+</html>

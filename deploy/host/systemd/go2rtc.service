@@ -1,0 +1,16 @@
+[Unit]
+Description=go2rtc (e-Node camera WebRTC relay/proxy)
+Documentation=https://github.com/Aculeasis/go2rtc
+After=network-online.target
+Wants=network-online.target
+# Reference runtime (manual install, DO NOT treat as general e-Node dependency;
+# this unit restores the existing binary/config only — it is optional for camera widgets).
+# Binary: /opt/go2rtc/go2rtc   Config: /opt/go2rtc/go2rtc.yaml   Version: v1.9.2 (b2399f3)
+[Service]
+Type=simple
+WorkingDirectory=/opt/go2rtc
+ExecStart=/opt/go2rtc/go2rtc -c /opt/go2rtc/go2rtc.yaml
+Restart=on-failure
+RestartSec=2
+[Install]
+WantedBy=multi-user.target
