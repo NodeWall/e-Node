@@ -177,6 +177,8 @@ Key facts:
 - Home does **not** create a new X11 window, new Chromium, new tab, or restart the
   Dashboard Chromium, and does not depend on the e-Node DOM in the current
   Dashboard Content (so it works from Proxmox / Maps / Video Spokes alike).
+- Home closes ALL other active page targets in the browser to prevent memory leaks
+  and tab accumulation.
 
 ## Display lifecycle
 
