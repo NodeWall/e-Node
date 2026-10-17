@@ -1,8 +1,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { PROXMOX_NODE_URL, HERMES_WEBUI_URL } from '../config.js';
 import { home as browserBridgeHome, openSpoke as browserBridgeOpenSpoke } from '../browserbridge.js';
+
+function getLocalIp() {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return '127.0.0.1';
+}
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -92,7 +106,8 @@ export default async function systemRoutes(fastify, opts) {
       memory: metrics.memory,
       disk: metrics.disk,
       hostname: metrics.hostname || 'hp3',
-      ip: metrics.ip || '',
+      hostIp: metrics.ip || '',
+      localIp: getLocalIp(),
       uptime: Math.round(process.uptime()),
       timestamp: Date.now(),
       source: 'mqtt-host',

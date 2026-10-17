@@ -57,7 +57,7 @@
       try {
         const res = await fetch('/api/system/proxmox-status');
         const data = await res.json();
-        const ip = data.ip || '127.0.0.1';
+        const ip = data.localIp || '127.0.0.1';
         sendSpoke(`https://${ip}:8787/`);
       } catch (e) {
         console.error('Failed to resolve Hermes IP:', e);
