@@ -21,6 +21,7 @@ exec pct exec "$CT_ID" -- bash -c '
   BACKEND="http://127.0.0.1:3000"
   CONTROL_PANEL_WINDOW_HEIGHT=60
   export DISPLAY=:0
+  export PULSE_SERVER=tcp:10.10.10.98:4713
 
   # Ensure the X11 socket is reachable at the standard path inside the CT.
   # The host X socket is bind-mounted at /opt/.X11-unix/X0; without a symlink to
