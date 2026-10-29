@@ -177,7 +177,9 @@ self-controlled interactive node.
 
 - [Architecture](docs/ARCHITECTURE.md) — how host + LXC stream the display
 - [Install](docs/INSTALL.md) — one-command setup, options, updating
-- [Security & Scope](docs/SECURITY.md) — what the installer changes on the host, risks
+- [Security & Scope](docs/SECURITY.md)
+- [Ukrainian STT Setup](docs/UKRAINIAN_STT.md) — Guide for enabling Ukrainian speech recognition — what the installer changes on the host, risks
+- [Ukrainian STT Setup](docs/UKRAINIAN_STT.md) — Guide for enabling Ukrainian speech recognition
 
 ## Status
 

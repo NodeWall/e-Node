@@ -181,6 +181,10 @@ file — it helps diagnose failures and is useful to share when asking for suppo
 Newer Proxmox/LXC versions may change library behaviour; if an update breaks the
 display stack, this is the known-good baseline.
 
+> **Optional:** For detailed instructions on enabling Ukrainian speech recognition (STT) and microphone routing, see [Ukrainian STT Setup](UKRAINIAN_STT.md).
+
+> **Optional:** For detailed instructions on enabling Ukrainian speech recognition (STT) and microphone routing, see [Ukrainian STT Setup](UKRAINIAN_STT.md).
+
 ## Known issues / investigation
 
 - **Physical UI sizing on some displays.** Chromium is launched with the true
